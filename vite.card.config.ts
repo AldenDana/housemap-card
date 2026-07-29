@@ -11,6 +11,14 @@ import { resolve } from 'path';
 // one file rather than left as separate node_modules-resolved imports.
 export default defineConfig({
   plugins: [react()],
+  // React's own runtime branches on process.env.NODE_ENV (dev warnings vs
+  // prod), which Vite's normal app build replaces automatically but its
+  // library-mode build does not - without this the bundle throws
+  // "process is not defined" as soon as React evaluates, part-way through
+  // the file, before customElements.define() at the bottom ever runs.
+  define: {
+    'process.env.NODE_ENV': JSON.stringify('production'),
+  },
   build: {
     outDir: 'dist-card',
     emptyOutDir: true,
