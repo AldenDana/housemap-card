@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>House Map — Room Designer</title>
+<style>
+  :root{
+    --bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#94a3b8;--accent:#38bdf8;
+    --track:#1e293b;--divider:rgba(148,163,184,.16);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;height:100vh;overflow:hidden;background:#0b1120;color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;display:flex;flex-direction:column}
+  header{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:10px 16px;background:rgba(17,24,39,.9);border-bottom:1px solid var(--divider);flex-wrap:wrap}
+  header h1{font-size:15px;margin:0;font-weight:800;flex:0 0 auto}
+  header .hint{font-size:12px;color:var(--muted);flex:1 1 auto}
+  button{appearance:none;border:1px solid rgba(148,163,184,.3);border-radius:10px;background:rgba(30,41,59,.88);color:var(--text);padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer}
+  button:hover{border-color:rgba(125,211,252,.6)}
+  button.primary{background:linear-gradient(135deg,#0284c7,#0ea5e9);border-color:rgba(186,230,253,.65);color:#fff}
+  button.danger{background:rgba(225,29,72,.15);border-color:rgba(251,113,133,.4);color:#fca5a5}
+  button:disabled{opacity:.4;cursor:default}
+  input[type=text],input[type=number],textarea,select{
+    width:100%;box-sizing:border-box;padding:7px 9px;border-radius:8px;border:1px solid rgba(148,163,184,.3);
+    background:rgba(30,41,59,.6);color:var(--text);font-size:13px;font-family:inherit
+  }
+  textarea{resize:vertical;min-height:50px}
+  label{display:block;font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
+  label:first-child{margin-top:0}
+  main{flex:1;min-height:0;display:flex}
+  #canvasWrap{flex:1;min-width:0;position:relative;overflow:auto;background:
+    linear-gradient(45deg,#0d1526 25%,transparent 25%),linear-gradient(-45deg,#0d1526 25%,transparent 25%),
+    linear-gradient(45deg,transparent 75%,#0d1526 75%),linear-gradient(-45deg,transparent 75%,#0d1526 75%);
+    background-size:24px 24px;background-position:0 0,0 12px,12px -12px,-12px 0;background-color:#0b1120}
+  #canvasWrap svg{cursor:crosshair;display:block}
+  .roomShape{fill:rgba(56,189,248,.18);stroke:#38bdf8;stroke-width:2;cursor:move}
+  .roomShape.selected{fill:rgba(56,189,248,.35);stroke:#7dd3fc;stroke-width:3}
+  .roomLabel{fill:#e5e7eb;font-size:16px;font-weight:600;text-anchor:middle;pointer-events:none;user-select:none}
+  .handle{fill:#7dd3fc;stroke:#0b1120;stroke-width:1.5;cursor:nwse-resize}
+  aside{flex:0 0 320px;background:rgba(17,24,39,.92);border-left:1px solid var(--divider);overflow-y:auto;padding:14px}
+  aside h2{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:0 0 8px}
+  .roomListItem{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,.2);margin-bottom:6px;cursor:pointer;background:rgba(30,41,59,.4)}
+  .roomListItem.active{border-color:#38bdf8;background:rgba(56,189,248,.12)}
+  .roomListItem .swatch{width:14px;height:14px;border-radius:4px;flex:0 0 auto;border:1px solid rgba(255,255,255,.3)}
+  .roomListItem span{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .roomListItem button{padding:2px 7px;font-size:11px;flex:0 0 auto}
+  .field-row{display:flex;gap:8px}
+  .field-row > div{flex:1;min-width:0}
+  .divider{height:1px;background:var(--divider);margin:16px 0}
+  .checkboxRow{display:flex;align-items:center;gap:8px;margin-top:10px}
+  .checkboxRow input{width:auto}
+  .checkboxRow label{margin:0;text-transform:none;font-weight:600;color:var(--text);font-size:13px}
+  #jsonOut{position:fixed;inset:0;background:rgba(5,8,16,.85);z-index:50;display:none;align-items:center;justify-content:center;padding:30px}
+  #jsonOut.open{display:flex}
+  #jsonOut .box{background:#0f172a;border:1px solid var(--divider);border-radius:16px;padding:20px;max-width:800px;width:100%;max-height:80vh;display:flex;flex-direction:column;gap:10px}
+  #jsonOut textarea{flex:1;min-height:300px;font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:pre}
+  .toolbarGroup{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+  .toolbarGroup label{margin:0;font-size:11px}
+  .toolbarGroup input{width:70px}
+  .empty{color:var(--muted);font-size:13px;padding:20px 4px;text-align:center}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏠 House Map — Room Designer</h1>
+  <div class="toolbarGroup">
+    <label>Canvas W</label><input type="number" id="vbW" value="1184">
+    <label>H</label><input type="number" id="vbH" value="1280">
+  </div>
+  <button id="btnBg">Upload floor plan photo (trace over it)</button>
+  <button id="btnClearBg" disabled>Clear photo</button>
+  <span class="hint">Click-drag on the canvas to draw a room. Click a room to edit it. Drag its corner handle to resize.</span>
+  <button id="btnLoad">Load existing config</button>
+  <button class="primary" id="btnExport">Export house.config.json</button>
+</header>
+
+<main>
+  <div id="canvasWrap">
+    <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+  <aside>
+    <h2>Rooms</h2>
+    <div id="roomList"></div>
+    <div class="divider"></div>
+    <div id="editor"><div class="empty">Draw a room on the canvas, or select one from the list above, to edit it here.</div></div>
+  </aside>
+</main>
+
+<div id="jsonOut">
+  <div class="box">
+    <h2 style="margin:0;font-size:14px">house.config.json</h2>
+    <textarea id="jsonText" readonly></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="btnCopy">Copy to clipboard</button>
+      <button id="btnDownload" class="primary">Download file</button>
+      <button id="btnCloseJson">Close</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileBg" accept="image/*" style="display:none">
+<input type="file" id="fileLoad" accept="application/json" style="display:none">
+
+<script>
+// ---- state ----
+let rooms = [];          // {key,name,fill,areaNames[],fallbackEntities[],excludeEntityPatterns[],baby,fallbackOnly,bx,by,bw,bh}
+let selectedKey = null;
+let bgImage = null;      // data URL
+let drawing = null;      // {x0,y0} while dragging a new rect
+let dragging = null;     // {key, mode:'move'|'resize', startX, startY, orig:{bx,by,bw,bh}}
+const PALETTE = ['#dfe3ee','#d9deeb','#e3e7f1','#dbe7f5','#e7e0f2','#f2e6d9','#dcefe0'];
+
+const svg = document.getElementById('svg');
+const vbWInput = document.getElementById('vbW');
+const vbHInput = document.getElementById('vbH');
+
+function vbW(){ return Number(vbWInput.value) || 1184; }
+function vbH(){ return Number(vbHInput.value) || 1280; }
+
+function slugify(name){
+  const base = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'room';
+  let key = base, n = 1;
+  while (rooms.some(r => r.key === key && r !== currentEditingRoom())) key = base + '_' + (++n);
+  return key;
+}
+function currentEditingRoom(){ return rooms.find(r => r.key === selectedKey) || null; }
+
+function render(){
+  svg.setAttribute('viewBox', `0 0 ${vbW()} ${vbH()}`);
+  const wrap = document.getElementById('canvasWrap');
+  const scale = Math.min((wrap.clientWidth - 20) / vbW(), (wrap.clientHeight - 20) / vbH());
+  svg.style.width = (vbW() * Math.max(scale, 0.1)) + 'px';
+  svg.style.height = (vbH() * Math.max(scale, 0.1)) + 'px';
+
+  let html = '';
+  if (bgImage) {
+    html += `<image href="${bgImage}" x="0" y="0" width="${vbW()}" height="${vbH()}" opacity="0.55" preserveAspectRatio="none"/>`;
+  }
+  for (const r of rooms) {
+    const sel = r.key === selectedKey;
+    html += `<rect class="roomShape${sel?' selected':''}" data-key="${r.key}" x="${r.bx}" y="${r.by}" width="${r.bw}" height="${r.bh}"/>`;
+    html += `<text class="roomLabel" x="${r.bx + r.bw/2}" y="${r.by + r.bh/2}">${escapeXml(r.name)}</text>`;
+    if (sel) {
+      html += `<circle class="handle" data-key="${r.key}" data-mode="resize" cx="${r.bx + r.bw}" cy="${r.by + r.bh}" r="9"/>`;
+    }
+  }
+  svg.innerHTML = html;
+  renderRoomList();
+  renderEditor();
+}
+
+function escapeXml(s){ return String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+
+function renderRoomList(){
+  const list = document.getElementById('roomList');
+  if (!rooms.length) { list.innerHTML = '<div class="empty">No rooms yet</div>'; return; }
+  list.innerHTML = rooms.map(r => `
+    <div class="roomListItem${r.key===selectedKey?' active':''}" data-key="${r.key}">
+      <span class="swatch" style="background:${r.fill.startsWith('#')?r.fill:'#888'}"></span>
+      <span>${escapeXml(r.name)}</span>
+      <button data-del="${r.key}">✕</button>
+    </div>`).join('');
+  list.querySelectorAll('.roomListItem').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      selectedKey = el.dataset.key; render();
+    });
+  });
+  list.querySelectorAll('button[data-del]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      rooms = rooms.filter(r => r.key !== btn.dataset.del);
+      if (selectedKey === btn.dataset.del) selectedKey = null;
+      render();
+    });
+  });
+}
+
+function renderEditor(){
+  const box = document.getElementById('editor');
+  const r = currentEditingRoom();
+  if (!r) { box.innerHTML = '<div class="empty">Draw a room on the canvas, or select one from the list above, to edit it here.</div>'; return; }
+  box.innerHTML = `
+    <label>Room name</label>
+    <input type="text" id="f_name" value="${escapeXml(r.name)}">
+    <label>Fill color</label>
+    <div class="field-row">
+      <div><input type="text" id="f_fill" value="${r.fill}"></div>
+      <div style="flex:0 0 auto"><input type="color" id="f_fillPicker" value="${r.fill.startsWith('#')?r.fill:'#dfe3ee'}" style="width:40px;padding:2px;height:32px"></div>
+    </div>
+    <label>Home Assistant area name(s) — comma separated, for auto-matching entities to this room</label>
+    <textarea id="f_areaNames">${escapeXml((r.areaNames||[]).join(', '))}</textarea>
+    <label>Fallback entity IDs — comma separated, always shown in this room regardless of area match</label>
+    <textarea id="f_fallback">${escapeXml((r.fallbackEntities||[]).join(', '))}</textarea>
+    <label>Exclude entity ID/name patterns — comma separated, hides matching entities even if area-matched</label>
+    <textarea id="f_exclude">${escapeXml((r.excludeEntityPatterns||[]).join(', '))}</textarea>
+    <div class="checkboxRow"><input type="checkbox" id="f_baby" ${r.baby?'checked':''}><label for="f_baby">Baby zone (adds a "Clean baby zone" vacuum action)</label></div>
+    <div class="checkboxRow"><input type="checkbox" id="f_fallbackOnly" ${r.fallbackOnly?'checked':''}><label for="f_fallbackOnly">Fallback entities ONLY (ignore HA's automatic area matching for this room)</label></div>
+    <div class="divider"></div>
+    <label>Position (canvas units)</label>
+    <div class="field-row">
+      <div><input type="number" id="f_bx" value="${r.bx}" title="x"></div>
+      <div><input type="number" id="f_by" value="${r.by}" title="y"></div>
+    </div>
+    <label>Size (canvas units)</label>
+    <div class="field-row">
+      <div><input type="number" id="f_bw" value="${r.bw}" title="width"></div>
+      <div><input type="number" id="f_bh" value="${r.bh}" title="height"></div>
+    </div>
+  `;
+  const commit = () => {
+    const rm = currentEditingRoom(); if (!rm) return;
+    const newName = document.getElementById('f_name').value.trim() || 'Room';
+    if (newName !== rm.name) { rm.name = newName; rm.key = slugify(newName); selectedKey = rm.key; }
+    rm.fill = document.getElementById('f_fill').value.trim() || '#dfe3ee';
+    rm.areaNames = splitList(document.getElementById('f_areaNames').value);
+    rm.fallbackEntities = splitList(document.getElementById('f_fallback').value);
+    rm.excludeEntityPatterns = splitList(document.getElementById('f_exclude').value);
+    rm.baby = document.getElementById('f_baby').checked;
+    rm.fallbackOnly = document.getElementById('f_fallbackOnly').checked;
+    rm.bx = Number(document.getElementById('f_bx').value) || 0;
+    rm.by = Number(document.getElementById('f_by').value) || 0;
+    rm.bw = Math.max(10, Number(document.getElementById('f_bw').value) || 10);
+    rm.bh = Math.max(10, Number(document.getElementById('f_bh').value) || 10);
+    render();
+  };
+  ['f_name','f_fill','f_areaNames','f_fallback','f_exclude','f_baby','f_fallbackOnly','f_bx','f_by','f_bw','f_bh'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('change', commit);
+  });
+  document.getElementById('f_fillPicker').addEventListener('input', (e) => {
+    document.getElementById('f_fill').value = e.target.value; commit();
+  });
+}
+function splitList(s){ return s.split(',').map(x => x.trim()).filter(Boolean); }
+
+// ---- drawing / dragging on the SVG canvas ----
+function svgPoint(evt){
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  const ctm = svg.getScreenCTM().inverse();
+  const p = pt.matrixTransform(ctm);
+  return { x: Math.round(p.x), y: Math.round(p.y) };
+}
+
+svg.addEventListener('pointerdown', (e) => {
+  const p = svgPoint(e);
+  const targetKey = e.target.dataset && e.target.dataset.key;
+  const mode = e.target.dataset && e.target.dataset.mode;
+  if (targetKey && mode === 'resize') {
+    const r = rooms.find(x => x.key === targetKey);
+    dragging = { key: targetKey, mode: 'resize', startX: p.x, startY: p.y, orig: { ...r } };
+    selectedKey = targetKey; render();
+  } else if (targetKey) {
+    const r = rooms.find(x => x.key === targetKey);
+    dragging = { key: targetKey, mode: 'move', startX: p.x, startY: p.y, orig: { ...r } };
+    selectedKey = targetKey; render();
+  } else {
+    drawing = { x0: p.x, y0: p.y };
+    selectedKey = null;
+  }
+});
+svg.addEventListener('pointermove', (e) => {
+  const p = svgPoint(e);
+  if (dragging) {
+    const r = rooms.find(x => x.key === dragging.key);
+    const dx = p.x - dragging.startX, dy = p.y - dragging.startY;
+    if (dragging.mode === 'move') {
+      r.bx = dragging.orig.bx + dx; r.by = dragging.orig.by + dy;
+    } else {
+      r.bw = Math.max(20, dragging.orig.bw + dx); r.bh = Math.max(20, dragging.orig.bh + dy);
+    }
+    render();
+  } else if (drawing) {
+    const x = Math.min(drawing.x0, p.x), y = Math.min(drawing.y0, p.y);
+    const w = Math.abs(p.x - drawing.x0), h = Math.abs(p.y - drawing.y0);
+    let preview = svg.querySelector('#previewRect');
+    if (!preview) {
+      preview = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      preview.id = 'previewRect'; preview.setAttribute('class', 'roomShape selected');
+      preview.style.pointerEvents = 'none';
+      svg.appendChild(preview);
+    }
+    preview.setAttribute('x', x); preview.setAttribute('y', y);
+    preview.setAttribute('width', w); preview.setAttribute('height', h);
+  }
+});
+window.addEventListener('pointerup', (e) => {
+  if (dragging) { dragging = null; }
+  if (drawing) {
+    const p = svgPoint(e);
+    const x = Math.min(drawing.x0, p.x), y = Math.min(drawing.y0, p.y);
+    const w = Math.abs(p.x - drawing.x0), h = Math.abs(p.y - drawing.y0);
+    drawing = null;
+    const preview = svg.querySelector('#previewRect');
+    if (preview) preview.remove();
+    if (w > 15 && h > 15) {
+      const name = 'New Room';
+      const key = slugify(name);
+      const fill = PALETTE[rooms.length % PALETTE.length];
+      rooms.push({ key, name, fill, areaNames: [], fallbackEntities: [], excludeEntityPatterns: [], baby: false, fallbackOnly: false, bx: x, by: y, bw: w, bh: h });
+      selectedKey = key;
+    }
+    render();
+  }
+});
+
+// ---- background image ----
+document.getElementById('btnBg').addEventListener('click', () => document.getElementById('fileBg').click());
+document.getElementById('fileBg').addEventListener('change', (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { bgImage = reader.result; document.getElementById('btnClearBg').disabled = false; render(); };
+  reader.readAsDataURL(file);
+});
+document.getElementById('btnClearBg').addEventListener('click', () => {
+  bgImage = null; document.getElementById('btnClearBg').disabled = true; render();
+});
+
+// ---- viewbox size changes ----
+vbWInput.addEventListener('change', render);
+vbHInput.addEventListener('change', render);
+
+// ---- export ----
+function buildConfig(){
+  return {
+    viewBox: { width: vbW(), height: vbH() },
+    drawOrder: rooms.map(r => r.key),
+    roomOrder: rooms.map(r => r.key),
+    rooms: rooms.map(r => {
+      const dx = r.bx + 24, dy = r.by + 24;
+      const lx = r.bx + r.bw/2, ly = r.by + r.bh/2;
+      const d = `M${r.bx},${r.by} L${r.bx+r.bw},${r.by} L${r.bx+r.bw},${r.by+r.bh} L${r.bx},${r.by+r.bh} Z`;
+      const out = {
+        key: r.key, name: r.name, roomId: 0, fill: r.fill,
+        areaNames: r.areaNames, d,
+        bx: r.bx, by: r.by, bw: r.bw, bh: r.bh, dx, dy, lx, ly,
+        fallbackEntities: r.fallbackEntities,
+      };
+      if (r.excludeEntityPatterns && r.excludeEntityPatterns.length) out.excludeEntityPatterns = r.excludeEntityPatterns;
+      if (r.baby) out.baby = true;
+      if (r.fallbackOnly) out.fallbackOnly = true;
+      return out;
+    })
+  };
+}
+document.getElementById('btnExport').addEventListener('click', () => {
+  const json = JSON.stringify(buildConfig(), null, 2);
+  document.getElementById('jsonText').value = json;
+  document.getElementById('jsonOut').classList.add('open');
+});
+document.getElementById('btnCloseJson').addEventListener('click', () => document.getElementById('jsonOut').classList.remove('open'));
+document.getElementById('btnCopy').addEventListener('click', () => {
+  document.getElementById('jsonText').select();
+  document.execCommand('copy');
+});
+document.getElementById('btnDownload').addEventListener('click', () => {
+  const blob = new Blob([document.getElementById('jsonText').value], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'house.config.json';
+  a.click();
+});
+
+// ---- load existing config ----
+document.getElementById('btnLoad').addEventListener('click', () => document.getElementById('fileLoad').click());
+document.getElementById('fileLoad').addEventListener('change', (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const cfg = JSON.parse(reader.result);
+      vbWInput.value = cfg.viewBox.width; vbHInput.value = cfg.viewBox.height;
+      rooms = cfg.rooms.map(r => ({
+        key: r.key, name: r.name, fill: r.fill,
+        areaNames: r.areaNames||[], fallbackEntities: r.fallbackEntities||[],
+        excludeEntityPatterns: r.excludeEntityPatterns||[], baby: !!r.baby, fallbackOnly: !!r.fallbackOnly,
+        bx: r.bx, by: r.by, bw: r.bw, bh: r.bh,
+      }));
+      selectedKey = rooms.length ? rooms[0].key : null;
+      render();
+    } catch (err) { alert('Could not read that file as a house.config.json: ' + err.message); }
+  };
+  reader.readAsText(file);
+});
+
+window.addEventListener('resize', render);
+render();
+</script>
+</body>
+</html>

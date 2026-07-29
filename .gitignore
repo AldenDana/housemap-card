@@ -1,0 +1,6 @@
+node_modules/
+dist/
+dist-card/
+config.js
+*.bak-*
+.DS_Store

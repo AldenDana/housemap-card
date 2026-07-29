@@ -1,0 +1,284 @@
+:root{
+  --bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#94a3b8;--accent:#38bdf8;--ok:#22c55e;--warn:#f59e0b;--danger:#ef4444;
+  --track:#1e293b;--divider:rgba(148,163,184,.16);--panel-w:clamp(200px,26vw,300px)
+}
+*{box-sizing:border-box}
+/* height:100vh as the universal baseline, 100dvh only where @supports actually
+   confirms it - some older WebViews (e.g. this project's Fire7 kiosk tablet,
+   Chromium 97) report CSS.supports('height','100dvh') === false yet still don't
+   gracefully fall back to the prior 100vh declaration on a plain redeclaration,
+   collapsing body to content-height (68px) instead of the real viewport. */
+body{margin:0;height:100vh;overflow:hidden;background:radial-gradient(circle at top left,#1e3a5f 0,#0f172a 42%,#0b1120 100%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+@supports (height:100dvh){body{height:100dvh}}
+#root{height:100%}
+.appShell{height:100%;max-width:1240px;margin:0 auto;padding:12px;box-sizing:border-box;display:flex;flex-direction:column}
+.topbar{flex:0 0 auto;display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.compactTopbar{min-height:34px}
+.statusPill{display:flex;align-items:center;gap:8px;border:1px solid rgba(148,163,184,.28);border-radius:999px;padding:8px 12px;background:rgba(15,23,42,.72);box-shadow:0 10px 30px rgba(0,0,0,.18);font-size:13px;color:#cbd5e1;text-transform:capitalize}
+.logPill{text-transform:none;color:#e5e7eb}
+.layout{flex:1;min-height:0;position:relative}
+.card{background:linear-gradient(180deg,rgba(17,24,39,.94),rgba(15,23,42,.94));border:1px solid rgba(148,163,184,.25);border-radius:24px;box-shadow:0 24px 70px rgba(0,0,0,.34);overflow:hidden}
+.mapCard{position:absolute;inset:0;box-sizing:border-box}
+/* Right inset reserves the panel's own width so the floorplan centers in the
+   space actually left over next to it, instead of centering across the full
+   card width and looking pushed left under the panel overlay. Phone room-focus
+   view (media query below) reverts to a symmetric inset since the panel is a
+   drawer that overlays the map there, not a permanently reserved column. */
+.mapStage{position:absolute;top:14px;left:14px;bottom:14px;right:calc(var(--panel-w) + 28px)}
+
+/* Phone-portrait Overview only (no room selected): status stacked above a
+   fullscreen floorplan instead of a side/drawer panel - .layout switches from
+   the absolute-positioned two-layer stack to a plain flex column. */
+.layout.mobileOverviewLayout{display:flex;flex-direction:column;gap:10px}
+.layout.mobileOverviewLayout .mapCard{position:relative;flex:1;min-height:0}
+.mobileHeader{flex:0 0 auto;display:flex;flex-direction:column;gap:8px}
+.mobileHeaderTop{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.mobileClock{font-size:26px;font-weight:800;color:#f8fafc;letter-spacing:-.5px}
+.mobileHeaderPills{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.mobileWeatherPill{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;background:rgba(17,24,39,.8);border:1px solid rgba(148,163,184,.25)}
+.mobileWeatherPill:not(.mobileHousePill){cursor:pointer}
+.mobileWeatherTemp{font-weight:800;color:#f8fafc}
+.mobileWeatherCond{font-size:12px;color:var(--muted)}
+.mobileHousePill{color:var(--muted)}
+.mobileHousePill .mobileWeatherTemp{font-size:13px}
+.mobileHousePill svg:not(:first-child){margin-left:4px}
+.mobilePeopleRow{margin-top:0;flex-wrap:nowrap;justify-content:flex-start}
+.mobilePeopleRow .personBadge{flex:0 0 auto;width:64px}
+.mobileAlarmCard{margin-top:0}
+.mobileAlarmCard .alarmStatusText{flex:1;min-width:0}
+.mobileAlarmActionBtn{width:auto;margin-top:0;padding:8px 16px;flex:0 0 auto}
+
+.floorplanStage{position:relative;width:100%;height:100%}
+.floorSvg{display:block;width:100%;height:100%}
+
+.room{cursor:pointer;stroke:#fff;stroke-width:6;transition:fill .15s ease,transform .16s ease;transform-box:fill-box;transform-origin:center}
+.room:hover{fill:#7dd3fc!important;transform:scale(1.008)}
+.roomLabels{pointer-events:none;user-select:none;fill:#334155;font-weight:500;font-family:inherit;text-anchor:middle}
+.statusDot{fill:var(--warn)}
+
+.sensorBadge{width:100%;height:100%;box-sizing:border-box;background:rgba(15,23,42,.78);border:1px solid rgba(148,163,184,.28);border-radius:14px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;flex-wrap:wrap;align-items:center;padding:8px 10px;gap:2px 10px;box-shadow:0 12px 26px rgba(0,0,0,.3)}
+.sensorStat{flex:0 0 calc(50% - 5px);display:flex;align-items:center;gap:6px;min-width:0}
+.sensorIcon{font-size:14px;line-height:1;flex:0 0 auto}
+.sensorValue{font-size:14px;font-weight:700;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* .panel is purely a positioning+drag container now (overflow:visible so the phone
+   drawer's handle can poke out past its own left edge); actual scrolling content
+   lives in .panelInner. On tablet/desktop this is always visible, right-anchored,
+   no drag. Below the phone-portrait breakpoint (App.tsx's useIsPhoneDrawer) it
+   becomes a draggable drawer - closed by default via an inline transform driven by
+   framer-motion, not CSS, so the same rule works for both open/closed states. */
+.panel{position:absolute;top:14px;right:14px;bottom:14px;width:var(--panel-w);box-sizing:border-box;z-index:3;overflow:visible;display:flex;flex-direction:column;touch-action:pan-y}
+.panelInner{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:12px;display:flex;flex-direction:column;gap:0}
+
+@media (max-width:560px) and (orientation:portrait){
+  .panel{width:min(340px,86vw);touch-action:none}
+  .mapStage{right:14px}
+}
+
+.drawerHandle{position:absolute;top:50%;left:-30px;transform:translateY(-50%);width:30px;height:64px;background:linear-gradient(180deg,rgba(17,24,39,.94),rgba(15,23,42,.94));border:1px solid rgba(148,163,184,.25);border-right:none;border-radius:14px 0 0 14px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:-6px 0 16px rgba(0,0,0,.25);touch-action:none}
+.drawerHandle span{width:4px;height:28px;border-radius:2px;background:rgba(148,163,184,.55)}
+
+.panelHeader{flex:0 0 auto;display:flex;align-items:center;gap:8px}
+.panel h2{flex:1;min-width:0;font-size:15px;line-height:1.15;margin:0;color:#f8fafc;letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.panelDivider{flex:0 0 auto;height:1px;background:var(--divider);margin:10px 0}
+.panelSection{flex:0 0 auto;padding:10px 0;border-bottom:1px solid var(--divider)}
+/* Clicking through to the promoted standalone Weather dashboard (item 6) */
+.weatherSection{cursor:pointer;margin:-10px -12px;padding:10px 12px;border-radius:12px;transition:background .14s ease}
+.weatherSection:hover{background:rgba(255,255,255,.04)}
+.panelSection:last-child{border-bottom:none}
+.panelSectionGrow{flex:1;min-height:0;display:flex;flex-direction:column}
+
+.sectionRow{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.sectionLabel{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+.sectionValue{font-size:11px;font-weight:700;color:#f8fafc}
+.sectionHint{font-size:10.5px;color:var(--muted);margin-top:6px}
+
+.toggleSwitch{width:38px;height:21px;border-radius:11px;position:relative;cursor:pointer;background:var(--track);transition:background .2s}
+.toggleSwitch.on{background:var(--accent)}
+.toggleKnob{width:17px;height:17px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.toggleSwitch.on .toggleKnob{transform:translateX(17px)}
+
+.brightnessRow{display:flex;align-items:center;gap:10px;margin-top:8px}
+.colorDot{width:15px;height:15px;border-radius:50%;flex:0 0 auto;background:var(--accent);border:2px solid var(--divider);cursor:pointer}
+.colorDot.open{border-color:var(--accent)}
+.colorPresetRow{display:flex;gap:8px;margin-top:8px;padding:8px;background:rgba(15,23,42,.5);border-radius:12px}
+.colorPreset{width:24px;height:24px;border-radius:50%;border:2px solid var(--divider);cursor:pointer}
+
+.tempStepper{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:6px}
+.stepBtn{width:28px;height:28px;border-radius:50%;border:1px solid var(--divider);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--text);cursor:pointer}
+.tempValue{font-size:24px;font-weight:700;color:#f8fafc;min-width:52px;text-align:center}
+
+input[type=range]{width:100%;height:5px;border-radius:3px;-webkit-appearance:none;appearance:none;background:var(--track);margin:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:#fff;border:none;box-shadow:0 1px 3px rgba(0,0,0,.4);cursor:pointer}
+
+.btn{appearance:none;border:1px solid rgba(148,163,184,.3);border-radius:16px;background:rgba(30,41,59,.88);color:#e5e7eb;cursor:pointer;box-shadow:0 12px 28px rgba(0,0,0,.18);transition:transform .14s ease,border-color .14s ease,background .14s ease}
+.btn:hover{transform:translateY(-1px);border-color:rgba(125,211,252,.7)}
+.btn.back{flex:0 0 auto;min-width:32px;padding:6px 8px;border-radius:999px;display:flex;align-items:center;justify-content:center}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.actionBadge{appearance:none;border:1px solid rgba(148,163,184,.3);border-radius:14px;background:rgba(30,41,59,.88);color:#e5e7eb;cursor:pointer;box-shadow:0 12px 28px rgba(0,0,0,.18);transition:transform .14s ease,border-color .14s ease,background .14s ease;display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 6px;flex:1 1 60px;min-width:0}
+.actionBadge:hover{transform:translateY(-1px);border-color:rgba(125,211,252,.7)}
+.actionBadge .badgeIcon{width:30px;height:30px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.16);flex:0 0 auto}
+.actionBadge span:last-child{font-size:10.5px;font-weight:800;text-align:center;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.actionBadge.primary{background:linear-gradient(135deg,#0284c7,#0ea5e9);border-color:rgba(186,230,253,.65);color:#fff}
+.actionBadge.warnBtn{background:linear-gradient(135deg,#e11d48,#fb7185);border-color:rgba(254,205,211,.7);color:#fff}
+
+.entityList{flex:1;min-height:0;display:grid;gap:7px;overflow:auto;align-content:start;padding-right:2px;margin-top:8px}
+.entity{width:100%;border:1px solid rgba(148,163,184,.23);border-radius:14px;background:rgba(15,23,42,.72);padding:8px 9px;color:#e2e8f0;display:flex;align-items:center;gap:9px;text-align:left}
+.entity b{font-size:12px;line-height:1.25;font-weight:700;overflow-wrap:anywhere}
+.entityIcon{flex:0 0 auto;width:30px;height:30px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(148,163,184,.14);color:var(--muted);transition:background .16s ease,color .16s ease}
+.entity.active .entityIcon{background:rgba(245,158,11,.2);color:var(--warn)}
+.entityAction{cursor:pointer}
+.entityAction:hover{background:rgba(14,165,233,.16);border-color:rgba(125,211,252,.55)}
+
+.overviewClock{display:flex;flex-direction:column;align-items:center;padding:4px 0 2px;text-align:center}
+.overviewTime{font-size:34px;font-weight:700;color:#f8fafc;letter-spacing:-.5px}
+.overviewDate{font-size:12px;color:var(--muted);text-transform:capitalize;margin-top:2px}
+
+.weatherRow{display:flex;align-items:center;gap:10px;margin-top:4px}
+.weatherEmoji{font-size:26px;line-height:1}
+.weatherTemp{font-size:22px;font-weight:700;color:#f8fafc}
+.weatherCond{font-size:12px;color:var(--muted);text-transform:capitalize;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Temp+humidity side by side, smaller (matches .weatherTemp's scale, not the old
+   big standalone numerals) so the panel doesn't grow tall enough to need
+   scrolling again - icons instead of "avg" labels, same compact language as
+   the weather row above it. */
+.houseClimateRow{display:flex;align-items:center;gap:18px;margin-top:4px}
+.houseClimateStat{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.houseClimateValue{font-size:20px;font-weight:700;color:#f8fafc}
+
+/* Resting states are mode-distinguishable at a glance (not one generic "armed"
+   green) - matches the real Alarmo config: away/vacation carry real exit+entry
+   delays, night arms instantly. arming/pending get a live countdown (App.tsx);
+   triggered is a deliberately unmissable red pulse. */
+.alarmStatus{display:flex;align-items:center;gap:10px;width:100%;border:1px solid rgba(148,163,184,.3);border-radius:14px;background:rgba(30,41,59,.88);padding:10px 12px;margin-top:4px}
+.alarmStatusText{display:flex;flex-direction:column;gap:1px;min-width:0}
+
+/* Real MDI shield icons (matching Home Assistant's own alarm_control_panel icon
+   set / the real mushroom-alarm-control-panel-card, inspected live via its shadow
+   DOM) sit in a circular chip - a COLORED icon on a light tint of the same hue
+   (not a solid-color circle with a white icon), matching HA's own
+   mushroom-shape-icon technique (--icon-color solid, --shape-color ~20% alpha).
+   One shared class used by the resting status badge AND the mode-picker rows,
+   colored per mode via the same className each element already carries. Kept
+   away/night/vacation as three distinct hues (not HA's default flat "armed=
+   green" for every mode) per Javier's earlier explicit ask for mode to read at
+   a glance - only the disarmed/arming/pending/triggered colors below are HA's
+   actual values, pulled live from --rgb-state-alarm-* on the real dashboard. */
+.alarmIconChip{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 auto;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.alarmIconChip.disarmed{color:#2196f3;background:rgba(33,150,243,.2)}
+.alarmIconChip.away{color:#4f7cff;background:rgba(79,124,255,.2)}
+.alarmIconChip.night{color:#8b6cff;background:rgba(139,108,255,.2)}
+.alarmIconChip.vacation{color:#33c26f;background:rgba(51,194,111,.2)}
+.alarmIconChip.arming,.alarmIconChip.pending{color:#f5a623;background:rgba(245,166,35,.2)}
+.alarmIconChip.triggered{color:#f44336;background:rgba(244,67,54,.2)}
+.alarmStatusLabel{font-size:13px;font-weight:700;color:#e5e7eb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.alarmCountdown{font-size:11px;font-weight:800;letter-spacing:.2px}
+
+.alarmStatus.disarmed{border-color:rgba(239,68,68,.4)}
+.alarmStatus.away{border-color:rgba(79,124,255,.55)}
+.alarmStatus.away .alarmStatusLabel{color:#7c9aff}
+.alarmStatus.night{border-color:rgba(139,108,255,.55)}
+.alarmStatus.night .alarmStatusLabel{color:#ad97ff}
+.alarmStatus.vacation{border-color:rgba(51,194,111,.55)}
+.alarmStatus.vacation .alarmStatusLabel{color:#4fd888}
+.alarmStatus.arming{border-color:rgba(245,158,11,.7)}
+.alarmStatus.arming .alarmCountdown{color:#f5a623}
+.alarmStatus.pending{border-color:rgba(255,122,69,.7)}
+.alarmStatus.pending .alarmCountdown{color:#ff7a45}
+.alarmStatus.triggered{border-color:rgba(255,77,79,.85);background:rgba(127,29,29,.4);animation:alarmPulse 1s ease-in-out infinite}
+.alarmStatus.triggered .alarmStatusLabel{color:#ffb3b3}
+@keyframes alarmPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,77,79,.55)}50%{box-shadow:0 0 0 9px rgba(255,77,79,0)}}
+
+.alarmActionBtn{width:100%;margin-top:8px;padding:10px;border-radius:12px;border:1px solid rgba(148,163,184,.3);background:rgba(30,41,59,.88);color:#e5e7eb;font-weight:800;cursor:pointer}
+/* Disarm matches the real mushroom-alarm-control-panel-card's action button
+   exactly (inspected live, armed state): icon-only (mdi:shield-off), no text,
+   no border, a near-transparent white tint, fixed 42px height. */
+.alarmActionBtn.alarmIconOnlyBtn{display:flex;align-items:center;justify-content:center;height:42px;padding:0;border:none;background:rgba(225,225,225,.05);color:#fff}
+.mobileAlarmActionBtn.alarmIconOnlyBtn{width:42px;height:42px;flex:0 0 auto}
+
+/* Floating modals (arm-mode picker, disarm PIN keypad) - portaled to document.body
+   in App.tsx so they float above everything with a dimmed backdrop, rather than
+   being squeezed into the scrolling side panel where they used to get cut off. */
+.modalBackdrop{position:fixed;inset:0;background:rgba(5,8,16,.72);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px}
+.modalCard{width:100%;max-width:320px;background:linear-gradient(180deg,rgba(17,24,39,.98),rgba(15,23,42,.98));border:1px solid rgba(148,163,184,.3);border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.5);padding:18px;box-sizing:border-box}
+.modalHeader{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.modalTitle{font-size:15px;font-weight:800;color:#f8fafc}
+.modalClose{width:28px;height:28px;flex:0 0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(148,163,184,.14);color:var(--muted);cursor:pointer;font-size:13px}
+
+/* One continuous rounded pill (matching HA's real more-info-alarm_control_panel
+   segmented list) instead of three separately-bordered cards - rows sit flush
+   inside a single shared background, icon stacked above label per row, a plain
+   neutral hover/tap highlight rather than per-mode colored borders. */
+.alarmModeColumn{display:flex;flex-direction:column;gap:2px;background:rgba(255,255,255,.04);border-radius:20px;padding:6px}
+.alarmModeBtnFull{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;border-radius:16px;border:none;background:transparent;color:#e5e7eb;font-size:13px;font-weight:700;cursor:pointer;transition:background .14s ease}
+.alarmModeBtnFull:hover{background:rgba(255,255,255,.06)}
+
+.alarmKeypad.shake{animation:alarmShake .4s}
+@keyframes alarmShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+/* Real code text field (matches HA's own more-info-alarm_control_panel code
+   entry) with a reveal/hide eye toggle, replacing the old dot-row readout. */
+.alarmCodeField{position:relative;margin-bottom:12px}
+.alarmCodeField input{width:100%;box-sizing:border-box;padding:12px 42px 12px 12px;border-radius:12px;border:1px solid rgba(148,163,184,.3);background:rgba(30,41,59,.6);color:#f8fafc;font-size:15px;letter-spacing:4px;font-family:inherit}
+.alarmCodeField input::placeholder{color:var(--muted);letter-spacing:normal}
+.alarmCodeEye{position:absolute;right:12px;top:50%;transform:translateY(-50%);display:flex;color:var(--muted);cursor:pointer}
+.alarmKeypadGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.alarmKeypadGrid button{aspect-ratio:1;border-radius:50%;border:1px solid rgba(148,163,184,.3);background:rgba(30,41,59,.88);color:#e5e7eb;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.alarmKeypadGrid button:hover{border-color:rgba(125,211,252,.6)}
+.alarmKeypadGrid button.alarmKeypadSubmit{border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.18);color:#22c55e}
+.alarmKeypadGrid button.alarmKeypadSubmit:disabled{opacity:.4;cursor:default}
+
+.peopleRow{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
+.personBadge{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1 1 70px;min-width:0}
+.personAvatar{position:relative;width:44px;height:44px;border-radius:50%;overflow:visible;background:rgba(148,163,184,.18);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--muted);border:2px solid var(--track)}
+.personAvatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+/* Position/size/no-border match the real mushroom-person-card's badge exactly
+   (measured live: ~16px badge on a 36px avatar, top-right corner, no border) -
+   scaled to our own 44px avatar. Icon inside (not a bare dot) via PRESENCE_META. */
+.personStatusDot{position:absolute;top:-3px;right:-3px;width:18px;height:18px;border-radius:50%;background:var(--muted);display:flex;align-items:center;justify-content:center;color:#fff}
+.personName{font-size:11px;font-weight:700;color:#e5e7eb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.personStatus{font-size:10px;color:var(--muted)}
+
+/* 4 real HA presence states, not binary home/away - see presenceOf() in App.tsx */
+.personBadge.home .personAvatar{border-color:#33c26f}
+.personBadge.home .personStatusDot{background:#33c26f}
+.personBadge.home .personStatus{color:#33c26f}
+.personBadge.work .personAvatar{border-color:#4f7cff}
+.personBadge.work .personStatusDot{background:#4f7cff}
+.personBadge.work .personStatus{color:#7c9aff}
+.personBadge.away .personAvatar{border-color:#ff5c5c}
+.personBadge.away .personStatusDot{background:#ff5c5c}
+.personBadge.away .personStatus{color:#ff8080}
+.personBadge.unknown .personAvatar{border-color:var(--muted)}
+.personBadge.unknown .personStatusDot{background:var(--muted)}
+.personBadge.unknown .personStatus{color:var(--muted)}
+
+@media (max-width:900px), (max-height:700px){
+  .appShell{padding:8px}
+  .panelInner{padding:10px}
+}
+
+@media (max-width:420px){
+  .overviewTime{font-size:26px}
+  .tempValue{font-size:20px}
+}
+
+/* Three real size tiers, not two: phone (≤560px portrait, drawer layout above)
+   and everything from there up to 1399px ("tablet" - the default/baseline
+   styling through this whole file, tuned against this project's own 1024x600
+   kiosk tablet) were the only two that existed before. A genuine desktop
+   monitor was just getting that same tablet-tuned baseline stretched wider,
+   capped at appShell's old 1240px max-width with dead space on either side
+   past that - never actually more spacious. This tier only activates at
+   1400px+, well above both the phone breakpoint and this project's own
+   tablet (1024px), so the tuned baseline above is completely unaffected. */
+@media (min-width:1400px){
+  .appShell{max-width:1800px}
+  :root{--panel-w:clamp(260px,22vw,380px)}
+  .overviewTime{font-size:40px}
+  .weatherTemp{font-size:26px}
+  .houseClimateValue{font-size:24px}
+  .alarmStatusLabel{font-size:15px}
+  .personName{font-size:13px}
+}
