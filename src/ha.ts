@@ -16,6 +16,14 @@ export interface HassLike {
   callWS: <T>(msg: Record<string, unknown>) => Promise<T>;
   auth: { data: { access_token: string } };
   hassUrl: (path?: string) => string;
+  // The real HA frontend's own per-user preference (Settings > General >
+  // Time format), stored server-side and independent of anything the
+  // browser/device's own locale resolves - live-confirmed on this instance:
+  // {"time_format":"24",...} even though the browser's own locale (en-US)
+  // would otherwise default to 12h. This is why HA's own UI reliably shows
+  // the format a user actually chose while a plain toLocaleTimeString([])
+  // call can't - it has no visibility into this HA-side setting at all.
+  locale?: { time_format?: string; language?: string };
 }
 
 export function token(): string {

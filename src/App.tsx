@@ -292,6 +292,26 @@ function relativeTime(iso?: string): string {
   return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
 }
 
+// A plain toLocaleTimeString([]) call only ever sees the browser/WebView's
+// own resolved LOCALE, which just gives a language-conventional default
+// (e.g. en-US -> 12h) - it has no visibility into a device's real, explicit
+// 24-hour-clock preference, which on Android is a separate system toggle
+// from language/region entirely. HA sidesteps this by storing the user's
+// own explicit choice server-side (Settings > General > Time format) and
+// exposing it on hass.locale.time_format - confirmed live on this instance
+// as "24" even where the browser's own locale would default to 12h. Card
+// mode has a real hass and reads this directly, matching HA's own displays
+// exactly; standalone mode (no hass) has no such setting to read and falls
+// back to the browser's own locale-based guess, same limitation as before.
+function use24Hour(hass?: HassLike): boolean {
+  const tf = hass?.locale?.time_format;
+  if (tf === '24') return true;
+  if (tf === '12') return false;
+  // tf is 'language' | 'system' | undefined (incl. standalone/no hass) -
+  // fall back to whatever the browser's own locale resolves for a known PM hour.
+  return !new Date(2023, 0, 1, 22, 0).toLocaleTimeString([], { hour: 'numeric' }).match(/AM|PM/i);
+}
+
 function useAlarmCountdown(alarmState?: HaState): number | null {
   const [now, setNow] = useState(() => Date.now());
   const active = alarmState?.state === 'arming' || alarmState?.state === 'pending';
@@ -307,14 +327,15 @@ function useAlarmCountdown(alarmState?: HaState): number | null {
   return Math.max(0, Math.ceil(delay - (now - changedAt) / 1000));
 }
 
-function PanelClock() {
+function PanelClock({ hass }: { hass?: HassLike }) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
+  const hour12 = !use24Hour(hass);
   return <div className="overviewClock">
-    <div className="overviewTime">{now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
+    <div className="overviewTime">{now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12 })}</div>
     <div className="overviewDate">{now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</div>
   </div>;
 }
@@ -685,11 +706,14 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
     <main className={`layout${mobileOverview ? ' mobileOverviewLayout' : ''}`}>
       {mobileOverview && <div className="mobileHeader">
         <div className="mobileHeaderTop">
-          {/* Deliberately locale-adaptive, not hardcoded - respects whatever
-              12h/24h convention the viewing device/browser itself resolves
-              to (same as this app's existing desktop PanelClock always has),
-              rather than forcing one convention on everyone. */}
-          <span className="mobileClock">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          {/* Genuinely adaptive - see use24Hour() above. Reads the real HA
+              per-user time-format preference (hass.locale.time_format) in
+              card mode instead of guessing from the browser's own locale,
+              which was the actual bug: a plain toLocaleTimeString([]) call
+              can't see a device's explicit 24h toggle at all, only its
+              language/region, so it was defaulting to 12h regardless of
+              what the device (and HA itself) were really set to. */}
+          <span className="mobileClock">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: !use24Hour(hass) })}</span>
           <div className="mobileHeaderPills">
             {weatherState && <div className="mobileWeatherPill" onClick={openWeatherDashboard}>
               <span>{weatherEmoji(weatherState.state)}</span>
@@ -701,17 +725,20 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
         <div className="peopleRow mobilePeopleRow">
           {PEOPLE_ENTITIES.map(eid => <PersonBadge key={eid} eid={eid} states={states} hass={hass} />)}
         </div>
-        {/* Structure copied from the real mushroom-alarm-control-panel-card
-            (live-inspected on the reference "Mobile" dashboard, not guessed):
-            icon badge, then a "since" line (primary_info: last-updated) and
-            the mode label (secondary_info: state) stacked below it, then the
-            arm/disarm action as its own full-width row underneath - not one
-            inline horizontal row like the old layout. */}
+        {/* First pass copied the real mushroom-alarm-control-panel-card's own
+            4-line vertical structure exactly (icon, since, mode, then a
+            full-width button row) - Javier's follow-up: it ate too much
+            vertical space from the actual floorplan, the real goal of this
+            view. Condensed to a single compact row instead: icon badge left,
+            a centered 2-line text block (mode on top since that's the more
+            important fact, the relative "since" time smaller below it),
+            disarm/arm action right - same information, same icon-badge
+            language, about half the height. */}
         {alarmState && alarmMetaNow && <div className={`alarmStatus mobileAlarmCard ${alarmMetaNow.className}`}>
           <span className={`alarmIconChip ${alarmMetaNow.className}`}><Icon path={alarmMetaNow.icon} size={18} /></span>
           <div className="alarmStatusText">
-            <span className="alarmSinceLabel">{relativeTime(alarmState.last_changed)}</span>
             <span className="alarmStatusLabel">{alarmMetaNow.label}</span>
+            <span className="alarmSinceLabel">{relativeTime(alarmState.last_changed)}</span>
             {showCountdown && <span className="alarmCountdown">{alarmCountdown}s to {alarmSt === 'arming' ? 'exit' : 'disarm'}</span>}
           </div>
           {alarmSt === 'disarmed'
@@ -832,7 +859,7 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
             </div>}
           </motion.div> : <motion.div className="panelInner" key="overviewPanel" {...contentSlideProps}>
             <div className="panelSection">
-              <PanelClock />
+              <PanelClock hass={hass} />
             </div>
 
             {weatherState && <div className="panelSection weatherSection" onClick={openWeatherDashboard}>
