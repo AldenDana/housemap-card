@@ -228,13 +228,25 @@ function weatherLabel(condition: string): string {
   return condition.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-// This app is iframed into the outer HA dashboard, so navigating window.location
-// would just replace what's shown inside the iframe slot, leaving no way back
-// to the floorplan without re-navigating. window.top swaps the whole browser
-// view instead, exactly like clicking the sidebar entry directly.
+// This app is iframed into the outer HA dashboard (standalone build) or
+// mounted directly inside it (Lovelace card build - there window.top is just
+// window, no iframe involved), so window.top always resolves to the real
+// outer HA frontend either way. A hard `location.href` assignment forces a
+// full page reload rather than an in-app route change - inside the HA
+// Companion App's WebView specifically, that gets treated as leaving the app
+// and handed off to the system browser instead of navigating within it (a
+// real bug Javier hit on his phone). HA's own frontend does client-side
+// routing via the History API + a `location-changed` event it listens for
+// on `window` - using that instead navigates exactly like clicking a
+// sidebar link would, both in a plain browser tab and inside the app.
 function openWeatherDashboard() {
-  try { window.top!.location.href = '/dashboard-weather/weather'; }
-  catch { window.location.href = '/dashboard-weather/weather'; }
+  try {
+    const top = window.top!;
+    top.history.pushState(null, '', '/dashboard-weather/weather');
+    top.dispatchEvent(new CustomEvent('location-changed', { bubbles: true, composed: true }));
+  } catch {
+    window.top!.location.href = '/dashboard-weather/weather';
+  }
 }
 
 // Modes are visually distinct at rest (not just a generic "armed" green) so which
@@ -264,6 +276,22 @@ function alarmMeta(state?: string) { return ALARM_META[state || ''] || { label: 
 // Real Alarmo exposes the current phase's total delay (seconds) as a `delay` attribute
 // and the phase-entry time as the entity's own last_changed — ticks a live countdown
 // during arming (exit delay) / pending (post-trip entry delay) instead of static text.
+// Matches the real mushroom-alarm-control-panel-card's own "primary_info:
+// last-updated" line (e.g. "7 hours ago") - live-inspected on the real
+// reference dashboard, not guessed. Coarse (minute-granularity), so no
+// dedicated ticking interval - it's cheap to recompute on whatever re-render
+// already happens (hass push in card mode, the 30s poll in standalone mode).
+function relativeTime(iso?: string): string {
+  if (!iso) return '';
+  const diffMin = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? '' : 's'} ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
+}
+
 function useAlarmCountdown(alarmState?: HaState): number | null {
   const [now, setNow] = useState(() => Date.now());
   const active = alarmState?.state === 'arming' || alarmState?.state === 'pending';
@@ -657,25 +685,32 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
     <main className={`layout${mobileOverview ? ' mobileOverviewLayout' : ''}`}>
       {mobileOverview && <div className="mobileHeader">
         <div className="mobileHeaderTop">
-          <span className="mobileClock">{new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+          {/* Deliberately locale-adaptive, not hardcoded - respects whatever
+              12h/24h convention the viewing device/browser itself resolves
+              to (same as this app's existing desktop PanelClock always has),
+              rather than forcing one convention on everyone. */}
+          <span className="mobileClock">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
           <div className="mobileHeaderPills">
             {weatherState && <div className="mobileWeatherPill" onClick={openWeatherDashboard}>
               <span>{weatherEmoji(weatherState.state)}</span>
               <span className="mobileWeatherTemp">{Math.round(Number(weatherState.attributes?.temperature))}°</span>
               <span className="mobileWeatherCond">{weatherLabel(weatherState.state)}</span>
             </div>}
-            {(avgHouseTemp !== null || avgHouseHumidity !== null) && <div className="mobileWeatherPill mobileHousePill">
-              {avgHouseTemp !== null && <><Icon path={mdiThermometer} size={14} /><span className="mobileWeatherTemp">{avgHouseTemp.toFixed(1)}°</span></>}
-              {avgHouseHumidity !== null && <><Icon path={mdiWaterPercent} size={14} /><span className="mobileWeatherTemp">{avgHouseHumidity.toFixed(0)}%</span></>}
-            </div>}
           </div>
         </div>
         <div className="peopleRow mobilePeopleRow">
           {PEOPLE_ENTITIES.map(eid => <PersonBadge key={eid} eid={eid} states={states} hass={hass} />)}
         </div>
+        {/* Structure copied from the real mushroom-alarm-control-panel-card
+            (live-inspected on the reference "Mobile" dashboard, not guessed):
+            icon badge, then a "since" line (primary_info: last-updated) and
+            the mode label (secondary_info: state) stacked below it, then the
+            arm/disarm action as its own full-width row underneath - not one
+            inline horizontal row like the old layout. */}
         {alarmState && alarmMetaNow && <div className={`alarmStatus mobileAlarmCard ${alarmMetaNow.className}`}>
           <span className={`alarmIconChip ${alarmMetaNow.className}`}><Icon path={alarmMetaNow.icon} size={18} /></span>
           <div className="alarmStatusText">
+            <span className="alarmSinceLabel">{relativeTime(alarmState.last_changed)}</span>
             <span className="alarmStatusLabel">{alarmMetaNow.label}</span>
             {showCountdown && <span className="alarmCountdown">{alarmCountdown}s to {alarmSt === 'arming' ? 'exit' : 'disarm'}</span>}
           </div>
@@ -690,6 +725,32 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
           <Floorplan selected={selected} onSelect={selectRoom} climate={climate} lightsOn={lightsOnByRoom} lightColor={roomLightColorByRoom} topAlign={mobileOverview} />
         </div>
       </section>
+
+      {/* A real flex sibling of .mapCard (both children of the same
+          mobileOverviewLayout column), not absolutely-positioned inside it -
+          deliberately, so .mapCard's own flex:1 automatically shrinks to
+          leave this guaranteed room rather than gambling on however much
+          letterboxed empty space the topAlign floorplan happens to leave at
+          its own bottom edge on a given device's actual viewport height
+          (real phones vary a lot once browser chrome eats into it - an
+          absolute overlay measured fine in one test viewport and sat right
+          at the visible edge, at real risk of clipping on a shorter one).
+          Reuses the same houseClimateRow/Stat/Value styling as the desktop
+          panel's own House Climate section for visual consistency. Room to
+          add more stats later (lux/co2/etc) without a layout change -
+          houseClimateRow is already a wrapping flex row. */}
+      {mobileOverview && (avgHouseTemp !== null || avgHouseHumidity !== null) && <div className="mobileClimateFooter">
+        <div className="houseClimateRow">
+          {avgHouseTemp !== null && <div className="houseClimateStat">
+            <Icon path={mdiThermometer} size={16} />
+            <span className="houseClimateValue">{avgHouseTemp.toFixed(1)}°</span>
+          </div>}
+          {avgHouseHumidity !== null && <div className="houseClimateStat">
+            <Icon path={mdiWaterPercent} size={16} />
+            <span className="houseClimateValue">{avgHouseHumidity.toFixed(0)}%</span>
+          </div>}
+        </div>
+      </div>}
 
       {!mobileOverview && <motion.aside className="card panel" ref={panelRef} {...drawerMotionProps}>
         {isPhoneDrawer && <div className="drawerHandle" onClick={() => setDrawerOpen(o => !o)}><span /></div>}
