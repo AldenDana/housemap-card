@@ -27,4 +27,22 @@ Error generating stack: `+e.message+`
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 .housemapCardMount { height: 100%; }
-`,yf=class extends HTMLElement{_hass;_config={type:`custom:housemap-card`};_root;_mount;setConfig(e){if(!e)throw Error(`Invalid configuration`);this._config=e,this._render()}set hass(e){this._hass=e,this._render()}get hass(){return this._hass}connectedCallback(){this._render()}disconnectedCallback(){this._root?.unmount(),this._root=void 0}getCardSize(){return 8}_ensureShadow(){if(this.shadowRoot)return this.shadowRoot;let e=this.attachShadow({mode:`open`}),t=document.createElement(`style`);return t.textContent=_f+vf,e.appendChild(t),this._mount=document.createElement(`div`),this._mount.className=`housemapCardMount`,e.appendChild(this._mount),e}_render(){if(!this._hass)return;let e=this._ensureShadow();this._root||=(0,yu.createRoot)(this._mount),this._root.render((0,H.jsx)(gf,{hass:this._hass,portalRoot:e}))}};customElements.get(`housemap-card`)||customElements.define(`housemap-card`,yf),window.customCards=window.customCards||[],window.customCards.push({type:`housemap-card`,name:`House Map`,description:`Interactive floorplan dashboard: tap a room for lights, climate, and blinds control, plus a whole-house overview panel with weather, alarm, and presence.`,preview:!1})})();
+.housemapCardDesignerLink {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
+  font-size: 11px;
+  text-decoration: none;
+  line-height: 1;
+}
+.housemapCardDesignerLink:hover { color: #f8fafc; border-color: rgba(148, 163, 184, 0.5); }
+`,yf=`https://aldendana.github.io/housemap-card/tools/room-designer.html`,bf=class extends HTMLElement{_hass;_config={type:`custom:housemap-card`};_root;_mount;setConfig(e){if(!e)throw Error(`Invalid configuration`);this._config=e,this._render()}set hass(e){this._hass=e,this._render()}get hass(){return this._hass}connectedCallback(){this._render()}disconnectedCallback(){this._root?.unmount(),this._root=void 0}getCardSize(){return 8}_ensureShadow(){if(this.shadowRoot)return this.shadowRoot;let e=this.attachShadow({mode:`open`}),t=document.createElement(`style`);t.textContent=_f+vf,e.appendChild(t),this._mount=document.createElement(`div`),this._mount.className=`housemapCardMount`,e.appendChild(this._mount);let n=document.createElement(`a`);return n.className=`housemapCardDesignerLink`,n.href=yf,n.target=`_blank`,n.rel=`noopener`,n.title=`Draw your own rooms - opens the room designer in a new tab`,n.textContent=`⚙️ Edit rooms`,e.appendChild(n),e}_render(){if(!this._hass)return;let e=this._ensureShadow();this._root||=(0,yu.createRoot)(this._mount),this._root.render((0,H.jsx)(gf,{hass:this._hass,portalRoot:e}))}};customElements.get(`housemap-card`)||customElements.define(`housemap-card`,bf),window.customCards=window.customCards||[],window.customCards.push({type:`housemap-card`,name:`House Map`,description:`Interactive floorplan dashboard: tap a room for lights, climate, and blinds control, plus a whole-house overview panel with weather, alarm, and presence.`,preview:!1})})();

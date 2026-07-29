@@ -42,7 +42,36 @@ const CARD_HOST_CSS = `
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 .housemapCardMount { height: 100%; }
+.housemapCardDesignerLink {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
+  font-size: 11px;
+  text-decoration: none;
+  line-height: 1;
+}
+.housemapCardDesignerLink:hover { color: #f8fafc; border-color: rgba(148, 163, 184, 0.5); }
 `;
+
+// Every HACS install of this card ships pre-built against whichever house's
+// house.config.json was checked in at build time (see README - "the house
+// itself is one swappable JSON file"). HACS only manages the single JS
+// resource named in hacs.json, not the whole repo, so the visual room
+// designer (tools/room-designer.html) can't ride along as a second
+// HACS-downloaded file - it's served instead from this repo's own GitHub
+// Pages, which mirrors the real folder structure (unlike HACS's flat
+// single-file copy), so this link works identically for every installer
+// without needing their own web server.
+const ROOM_DESIGNER_URL = 'https://aldendana.github.io/housemap-card/tools/room-designer.html';
 
 interface HousemapCardConfig {
   type: string;
@@ -99,6 +128,16 @@ class HousemapCard extends HTMLElement {
     this._mount = document.createElement('div');
     this._mount.className = 'housemapCardMount';
     shadow.appendChild(this._mount);
+
+    const link = document.createElement('a');
+    link.className = 'housemapCardDesignerLink';
+    link.href = ROOM_DESIGNER_URL;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.title = 'Draw your own rooms - opens the room designer in a new tab';
+    link.textContent = '⚙️ Edit rooms';
+    shadow.appendChild(link);
+
     return shadow;
   }
 
