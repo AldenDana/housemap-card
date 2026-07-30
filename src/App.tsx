@@ -871,7 +871,35 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
               </div>
             </div>}
 
-            {(avgHouseTemp !== null || avgHouseHumidity !== null) && <div className="panelSection">
+            <div className="panelSection">
+              <span className="sectionLabel">People</span>
+              <div className="peopleRow">
+                {PEOPLE_ENTITIES.map(eid => <PersonBadge key={eid} eid={eid} states={states} hass={hass} />)}
+              </div>
+            </div>
+
+            {/* Same compact icon/text/button row as the mobile alarm card
+                (badge left, 2-line status centered, action right) - was
+                previously a bordered row with a separate full-width button
+                stacked below it; this is the one row, button now sits
+                inside .alarmStatus itself, scoped via .desktopAlarmCard so
+                mobile's own sizing is untouched. */}
+            {alarmState && alarmMetaNow && <div className="panelSection">
+              <span className="sectionLabel">Alarm</span>
+              <div className={`alarmStatus desktopAlarmCard ${alarmMetaNow.className}`}>
+                <span className={`alarmIconChip ${alarmMetaNow.className}`}><Icon path={alarmMetaNow.icon} size={18} /></span>
+                <div className="alarmStatusText">
+                  <span className="alarmStatusLabel">{alarmMetaNow.label}</span>
+                  <span className="alarmSinceLabel">{relativeTime(alarmState.last_changed)}</span>
+                  {showCountdown && <span className="alarmCountdown">{alarmCountdown}s to {alarmSt === 'arming' ? 'exit' : 'disarm'}</span>}
+                </div>
+                {alarmSt === 'disarmed'
+                  ? <button className="alarmActionBtn alarmIconOnlyBtn" onClick={() => setArmModalOpen(true)}><Icon path={mdiShield} size={20} /></button>
+                  : <button className="alarmActionBtn alarmIconOnlyBtn" onClick={openDisarmKeypad}><Icon path={mdiShieldOff} size={20} /></button>}
+              </div>
+            </div>}
+
+            {(avgHouseTemp !== null || avgHouseHumidity !== null) && <div className="panelSection panelSectionGrow">
               <span className="sectionLabel">House Climate</span>
               <div className="houseClimateRow">
                 {avgHouseTemp !== null && <div className="houseClimateStat">
@@ -884,28 +912,6 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
                 </div>}
               </div>
             </div>}
-
-            {alarmState && alarmMetaNow && <div className="panelSection">
-              <span className="sectionLabel">Alarm</span>
-              <div className={`alarmStatus ${alarmMetaNow.className}`}>
-                <span className={`alarmIconChip ${alarmMetaNow.className}`}><Icon path={alarmMetaNow.icon} size={18} /></span>
-                <div className="alarmStatusText">
-                  <span className="alarmStatusLabel">{alarmMetaNow.label}</span>
-                  {showCountdown && <span className="alarmCountdown">{alarmCountdown}s to {alarmSt === 'arming' ? 'exit' : 'disarm'}</span>}
-                </div>
-              </div>
-
-              {alarmSt === 'disarmed'
-                ? <button className="alarmActionBtn alarmIconOnlyBtn" onClick={() => setArmModalOpen(true)}><Icon path={mdiShield} size={20} /></button>
-                : <button className="alarmActionBtn alarmIconOnlyBtn" onClick={openDisarmKeypad}><Icon path={mdiShieldOff} size={20} /></button>}
-            </div>}
-
-            <div className="panelSection panelSectionGrow">
-              <span className="sectionLabel">People</span>
-              <div className="peopleRow">
-                {PEOPLE_ENTITIES.map(eid => <PersonBadge key={eid} eid={eid} states={states} hass={hass} />)}
-              </div>
-            </div>
           </motion.div>}
         </AnimatePresence>
       </motion.aside>}

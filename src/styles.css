@@ -159,6 +159,13 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
    triggered is a deliberately unmissable red pulse. */
 .alarmStatus{display:flex;align-items:center;gap:10px;width:100%;border:1px solid rgba(148,163,184,.3);border-radius:14px;background:rgba(30,41,59,.88);padding:10px 12px;margin-top:4px}
 .alarmStatusText{display:flex;flex-direction:column;gap:1px;min-width:0}
+/* Desktop/tablet panel's own version of the mobile alarm card's compact row -
+   the action button now lives INSIDE .alarmStatus (was previously a separate
+   full-width button stacked below it), so it needs to shrink to a square
+   instead of inheriting the old width:100% block-button sizing, and the
+   text block centers in the space between the icon and the button. */
+.desktopAlarmCard .alarmStatusText{flex:1;min-width:0;align-items:center;text-align:center}
+.desktopAlarmCard .alarmIconOnlyBtn{width:42px;flex:0 0 auto;margin-top:0}
 
 /* Real MDI shield icons (matching Home Assistant's own alarm_control_panel icon
    set / the real mushroom-alarm-control-panel-card, inspected live via its shadow
