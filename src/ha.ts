@@ -125,7 +125,21 @@ function shouldKeepForRoom(key: RoomKey, ent: HaEntity): boolean {
   return !patterns.some(pattern => haystack.includes(pattern.toLowerCase()));
 }
 
-export async function loadRoomEntityMappings(hass?: HassLike): Promise<Record<RoomKey, string[]>> {
+// Scripts labeled this way in HA (Settings > Areas & Labels) render as a
+// dedicated "zone clean" button in their assigned room's Cleaning section
+// instead of the generic entity list - e.g. script.vacuum_clean_baby_zone /
+// vacuum_clean_lunch_table, both labeled + area-assigned to Living Room live
+// in HA. Adding a new per-zone vacuum preset in the future is then just
+// "create the script, give it this label and an Area" - no app code change,
+// no new hardcoded per-room flag here.
+const ZONE_ACTION_LABEL = 'vacuum_zone';
+
+export interface RoomData {
+  entities: Record<RoomKey, string[]>;
+  zoneActions: Record<RoomKey, string[]>;
+}
+
+export async function loadRoomEntityMappings(hass?: HassLike): Promise<RoomData> {
   const request = hass
     ? <T,>(type: string) => hass.callWS<T>({ type })
     : haWsRequest;
@@ -149,34 +163,62 @@ export async function loadRoomEntityMappings(hass?: HassLike): Promise<Record<Ro
     if (key) deviceToRoom[device.id] = key;
   }
 
-  // An entity manually curated into one room's fallbackEntities (a deliberate,
-  // human-reviewed override, e.g. after auditing which device is really in which
-  // physical room) should never ALSO leak into a different room via HA's own
-  // live area/device registry - that registry can drift independently (a Tuya
-  // device's area_id got silently reset to "master_bedroom" outside this app,
-  // hours before this comment was written, even though the light itself is
-  // manually assigned to Diego's room below) and would otherwise double-count
-  // the same physical light in two rooms at once (lights toggle, room-tint, etc.
-  // all firing for both).
-  const fallbackClaimedBy: Record<string, RoomKey> = {};
-  for (const key of Object.keys(rooms) as RoomKey[]) {
-    for (const eid of rooms[key].fallbackEntities) fallbackClaimedBy[eid] = key;
+  // Some integrations (Tuya/local_tuya in particular) expose BOTH a raw
+  // switch.* entity and an abstracted light.* entity for the same physical
+  // device - the light entity already covers on/off (plus brightness/color
+  // where supported), so the raw switch duplicate is never a second real
+  // control, just noise with a misleading toggle-switch icon. Suppress any
+  // switch.* entity that shares a device_id with a light.* entity, globally
+  // (not per-room), before room assignment even happens.
+  const deviceHasLight = new Set<string>();
+  for (const ent of entities || []) {
+    if (ent.entity_id.startsWith('light.') && ent.device_id) deviceHasLight.add(ent.device_id);
   }
 
+  // HA's own live area/device registry is the authoritative source for which
+  // physical room an entity is in - it's what Javier actually edits (Settings >
+  // Areas) when a device is mis-placed, so it must always win. Track it per
+  // entity so the fallback pass below can tell "HA has no opinion, use my
+  // manual guess" apart from "HA disagrees with my manual guess, HA wins."
+  const dynamicRoomOf: Record<string, RoomKey> = {};
   const mapped = Object.fromEntries(Object.keys(rooms).map(k => [k, []])) as unknown as Record<RoomKey, string[]>;
+  const zoneActions = Object.fromEntries(Object.keys(rooms).map(k => [k, []])) as unknown as Record<RoomKey, string[]>;
   for (const ent of entities || []) {
     if (!shouldShowEntity(ent)) continue;
+    if (ent.entity_id.startsWith('switch.') && ent.device_id && deviceHasLight.has(ent.device_id)) continue;
     const key = (ent.area_id ? areaToRoom[ent.area_id] : undefined) || (ent.device_id ? deviceToRoom[ent.device_id] : undefined);
     if (!key || !shouldKeepForRoom(key, ent)) continue;
-    const claimedBy = fallbackClaimedBy[ent.entity_id];
-    if (claimedBy && claimedBy !== key) continue;
+    dynamicRoomOf[ent.entity_id] = key;
+    if (ent.entity_id.startsWith('script.') && (ent.labels || []).includes(ZONE_ACTION_LABEL)) {
+      zoneActions[key].push(ent.entity_id);
+      continue; // rendered as its own Cleaning-section button, not in the generic entity list
+    }
     mapped[key].push(ent.entity_id);
   }
+
+  // fallbackEntities is a genuine fallback, not an override: it only fills in
+  // entities HA itself has no area/device placement for at all (or that got
+  // filtered out above, e.g. entity_category-hidden helpers). If HA's live
+  // data already placed an entity in a different room than a fallback list
+  // claims, HA wins silently - the fix belongs in HA's own Area assignment,
+  // not in a second hardcoded list here.
+  for (const key of Object.keys(rooms) as RoomKey[]) {
+    for (const eid of rooms[key].fallbackEntities) {
+      const liveKey = dynamicRoomOf[eid];
+      if (liveKey && liveKey !== key) continue;
+      mapped[key].push(eid);
+    }
+  }
+
   for (const key of Object.keys(mapped) as RoomKey[]) mapped[key] = [...new Set(mapped[key])].sort(entitySort);
-  return mapped;
+  for (const key of Object.keys(zoneActions) as RoomKey[]) zoneActions[key] = [...new Set(zoneActions[key])].sort();
+  return { entities: mapped, zoneActions };
 }
 
-export function mergedEntities(key: RoomKey, dynamic: Record<RoomKey, string[]>): string[] {
-  if (rooms[key].fallbackOnly) return [...new Set(rooms[key].fallbackEntities)];
-  return [...new Set([...(dynamic[key] || []), ...rooms[key].fallbackEntities])];
+// mappings passed in here already have fallbackEntities folded in (see
+// loadRoomEntityMappings above) - this just dedupes, kept as a named function
+// since every call site reads more clearly as "the entities for this room"
+// than reaching into the mappings record directly.
+export function mergedEntities(key: RoomKey, mappings: Record<RoomKey, string[]>): string[] {
+  return [...new Set(mappings[key] || [])];
 }

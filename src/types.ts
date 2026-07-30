@@ -24,9 +24,7 @@ export interface RoomConfig {
   // climate.*/cover.* entities), filled in once real thermostats/blinds exist.
   climateEntity?: string;
   coverEntity?: string;
-  fallbackOnly?: boolean;
   excludeEntityPatterns?: string[];
-  baby?: boolean;
   fill: string;
   d: string; // SVG path data, 1184x1280 unit space
   bx: number; by: number; bw: number; bh: number; // bounding box, used for zoom transform + badge position
@@ -64,6 +62,7 @@ export interface HaEntity {
   disabled_by?: string | null;
   hidden_by?: string | null;
   entity_category?: string | null;
+  labels?: string[] | null;
 }
 
 declare global {

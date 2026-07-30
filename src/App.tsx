@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, type PanInfo } from 'framer-motion';
 import {
-  mdiArrowLeft, mdiRobotVacuum, mdiBabyCarriage,
+  mdiArrowLeft, mdiRobotVacuum,
   mdiLightbulb, mdiLightbulbOutline, mdiToggleSwitch, mdiToggleSwitchOffOutline,
   mdiFan, mdiFanOff, mdiAirHumidifier, mdiAirHumidifierOff,
   mdiWindowShutter, mdiWindowShutterOpen, mdiLock, mdiLockOpenVariant,
@@ -14,7 +14,7 @@ import {
 import { Floorplan } from './Floorplan';
 import { roomOrder, rooms } from './rooms';
 import type { ClimateKind, ClimatePoint, HaState, RoomClimate, RoomKey } from './types';
-import { authHeader, callService, fetchStates, haBase, loadRoomEntityMappings, mergedEntities, type HassLike } from './ha';
+import { authHeader, callService, fetchStates, haBase, loadRoomEntityMappings, mergedEntities, type HassLike, type RoomData } from './ha';
 // Deliberately NOT imported here - each entry point pulls styles.css itself,
 // in whatever form that mode needs (main.tsx: a plain side-effect import,
 // same as always; housemap-card.tsx: `?inline` as a raw string, injected
@@ -82,6 +82,13 @@ function blendWithBase(rgb: [number, number, number], base: [number, number, num
 
 function friendly(states: Record<string, HaState>, eid: string): string {
   return String(states[eid]?.attributes?.friendly_name || eid.replace(/^[^.]+\./, '').replaceAll('_', ' '));
+}
+// Zone-clean scripts' own friendly names carry a shared "Vacuum: Clean "
+// prefix (useful in HA's own script list, redundant next to a robot-vacuum
+// icon in this panel's Cleaning section) - strip it for display, but only
+// ever for display; the underlying entity_id/service call is unaffected.
+function zoneActionLabel(fullName: string): string {
+  return fullName.replace(/^vacuum:\s*clean\s*/i, '').trim() || fullName;
 }
 function entityValue(states: Record<string, HaState>, eid: string): string {
   const state = states[eid];
@@ -205,16 +212,31 @@ function buildRoomClimate(states: Record<string, HaState>, mappings: Record<Room
   return out;
 }
 
-function averageHouseClimate(states: Record<string, HaState>, kind: ClimateKind): number | null {
-  const vals: number[] = [];
-  for (const key of roomOrder) {
-    for (const eid of rooms[key].climateEntities || []) {
-      if (!isLiveEntity(states, eid) || climateKind(eid, states[eid]) !== kind) continue;
-      const num = Number(states[eid].state);
-      if (Number.isFinite(num)) { vals.push(num); break; }
-    }
+// House-wide temperature/humidity are real HA template-sensor helpers
+// (sensor.house_average_temperature/_humidity, configuration.yaml), not a
+// client-side average - so HA's recorder keeps real history for them and
+// tapping one opens the same more-info chart any other HA sensor would
+// (see openMoreInfo below). Averaging happened client-side before; that
+// meant no history existed anywhere to show, which is the actual thing
+// Javier asked to fix, not just where the number comes from.
+const HOUSE_TEMP_ENTITY = 'sensor.house_average_temperature';
+const HOUSE_HUMIDITY_ENTITY = 'sensor.house_average_humidity';
+
+// Opens HA's real more-info dialog (the same chart-bearing dialog tapping any
+// entity in a stock Mushroom/entities card opens) for a given entity. Works
+// identically in card mode (mounted directly in HA's real DOM - window.top is
+// just window) and standalone/iframed mode (window.top is the outer HA page,
+// same-origin so its DOM is directly reachable) - same cross-frame technique
+// as openWeatherDashboard above, just dispatching a different HA frontend
+// event instead of doing SPA navigation.
+function openMoreInfo(entityId: string) {
+  try {
+    const topDoc = window.top!.document;
+    const target: EventTarget = topDoc.querySelector('home-assistant') || window.top!;
+    target.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId }, bubbles: true, composed: true }));
+  } catch {
+    // Not actually embedded in an HA frontend (e.g. a bare dev preview) - no-op.
   }
-  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
 }
 
 const WEATHER_EMOJI: Record<string, string> = {
@@ -422,8 +444,8 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
   const [standaloneStates, setStandaloneStates] = useState<Record<string, HaState>>({});
   const states = hass ? hass.states : standaloneStates;
   const [mappings, setMappings] = useState<Record<RoomKey, string[]>>(blankMappings);
+  const [zoneActions, setZoneActions] = useState<Record<RoomKey, string[]>>(blankMappings);
   const [log, setLog] = useState('');
-  const [paletteOpen, setPaletteOpen] = useState(false);
   const [alarmKeypadOpen, setAlarmKeypadOpen] = useState(false);
   const [armModalOpen, setArmModalOpen] = useState(false);
   const [alarmCode, setAlarmCode] = useState('');
@@ -458,8 +480,8 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
   const otherEntities = useMemo(() => entities.filter(eid => !eid.startsWith('light.')), [entities]);
   const visibleControls = useMemo(() => uniqueVisibleControls(otherEntities, states), [otherEntities, states]);
   const climate = useMemo(() => buildRoomClimate(states, mappings), [states, mappings]);
-  const avgHouseTemp = useMemo(() => averageHouseClimate(states, 'temperature'), [states]);
-  const avgHouseHumidity = useMemo(() => averageHouseClimate(states, 'humidity'), [states]);
+  const avgHouseTemp = isLiveEntity(states, HOUSE_TEMP_ENTITY) ? Number(states[HOUSE_TEMP_ENTITY].state) : null;
+  const avgHouseHumidity = isLiveEntity(states, HOUSE_HUMIDITY_ENTITY) ? Number(states[HOUSE_HUMIDITY_ENTITY].state) : null;
   const weatherState = states[WEATHER_ENTITY];
   const alarmState = states[ALARM_ENTITY];
 
@@ -527,15 +549,16 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
   // object by then - the card wrapper never renders <App> before its first
   // `hass` is set), not on every subsequent state-driven re-render.
   useEffect(() => {
+    const applyRoomData = (data: RoomData) => { setMappings(data.entities); setZoneActions(data.zoneActions); setLog(''); };
     if (hass) {
       loadRoomEntityMappings(hass)
-        .then(mapped => { setMappings(mapped); setLog(''); })
+        .then(applyRoomData)
         .catch(e => setLog(`HA areas unavailable: ${e.message}`));
       return;
     }
     refreshState();
     loadRoomEntityMappings()
-      .then(mapped => { setMappings(mapped); setLog(''); })
+      .then(applyRoomData)
       .catch(e => setLog(`HA areas unavailable: ${e.message}`))
       .finally(refreshState);
     const timer = window.setInterval(refreshState, 30_000);
@@ -545,7 +568,7 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
 
   const alarmCountdown = useAlarmCountdown(alarmState);
 
-  useEffect(() => { setPaletteOpen(false); setAlarmKeypadOpen(false); setArmModalOpen(false); setAlarmCode(''); setAlarmError(false); setAlarmCodeVisible(false); }, [selected]);
+  useEffect(() => { setAlarmKeypadOpen(false); setArmModalOpen(false); setAlarmCode(''); setAlarmError(false); setAlarmCodeVisible(false); }, [selected]);
 
   // Phone-portrait drawer: tapping a room auto-opens the drawer so its controls are
   // immediately reachable; tapping the floorplan background closes an open drawer
@@ -571,7 +594,7 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
     await callSvc('script', 'vacuum_clean_rooms', payload);
     setLog(`Cleaning ${room.name}`);
   }
-  async function babyZone() { setLog('Cleaning baby zone…'); await callSvc('script', 'vacuum_clean_baby_zone', {}); setLog('Cleaning baby zone'); }
+  async function cleanWholeHouse() { setLog('Cleaning whole house…'); await callSvc('script', 'vacuum_clean_all', {}); setLog('Cleaning whole house'); }
   async function armMode(mode: typeof ALARM_MODES[number]) {
     setArmModalOpen(false);
     setLog(`Arming ${mode.label}…`);
@@ -635,7 +658,6 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
     window.setTimeout(refreshState, 600);
   }
   async function pickColor(hex: string) {
-    setPaletteOpen(false);
     if (!colorCapable.length) return;
     await callSvc('light', 'turn_on', { entity_id: colorCapable, rgb_color: hexToRgb(hex) });
     window.setTimeout(refreshState, 600);
@@ -768,11 +790,11 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
           houseClimateRow is already a wrapping flex row. */}
       {mobileOverview && (avgHouseTemp !== null || avgHouseHumidity !== null) && <div className="mobileClimateFooter">
         <div className="houseClimateRow">
-          {avgHouseTemp !== null && <div className="houseClimateStat">
+          {avgHouseTemp !== null && <div className="houseClimateStat" onClick={() => openMoreInfo(HOUSE_TEMP_ENTITY)}>
             <Icon path={mdiThermometer} size={16} />
             <span className="houseClimateValue">{avgHouseTemp.toFixed(1)}°</span>
           </div>}
-          {avgHouseHumidity !== null && <div className="houseClimateStat">
+          {avgHouseHumidity !== null && <div className="houseClimateStat" onClick={() => openMoreInfo(HOUSE_HUMIDITY_ENTITY)}>
             <Icon path={mdiWaterPercent} size={16} />
             <span className="houseClimateValue">{avgHouseHumidity.toFixed(0)}%</span>
           </div>}
@@ -798,14 +820,13 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
               </div>
               {brightnessCapable.length > 0 && <>
                 <div className="brightnessRow" style={{ opacity: lightsOn ? 1 : 0.35 }}>
-                  {colorCapable.length > 0 && <div className={`colorDot${paletteOpen ? ' open' : ''}`} onClick={() => setPaletteOpen(o => !o)} />}
                   <input type="range" min={0} max={100} step={5} value={brightness}
                     onChange={e => setBrightness(Number(e.target.value)).catch(err => setLog(`Error: ${err.message}`))}
                     style={{ background: brightnessTrack }} />
                 </div>
-                <div className="sectionHint">{brightness}%{colorCapable.length > 0 ? ' · tap dot for color' : ''}</div>
+                <div className="sectionHint">{brightness}%</div>
               </>}
-              {colorCapable.length > 0 && paletteOpen && <div className="colorPresetRow">
+              {colorCapable.length > 0 && <div className="colorPresetRow">
                 {LIGHT_PRESETS.map(p => <div key={p.hex} className="colorPreset" style={{ background: p.hex }} onClick={() => pickColor(p.hex).catch(e => setLog(`Error: ${e.message}`))} />)}
               </div>}
             </div>}
@@ -836,10 +857,17 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
                   <span className="badgeIcon"><Icon path={mdiRobotVacuum} /></span>
                   <span>Clean room</span>
                 </button>
-                {room.baby && <button className="actionBadge warnBtn" onClick={() => babyZone().catch(e => setLog(`Error: ${e.message}`))}>
-                  <span className="badgeIcon"><Icon path={mdiBabyCarriage} /></span>
-                  <span>Baby zone</span>
-                </button>}
+                {/* Zone-clean buttons come entirely from HA's own registry (see
+                    loadRoomEntityMappings' zoneActions / ZONE_ACTION_LABEL in
+                    ha.ts) - any script.* labeled "Vacuum Zone" and Area-assigned
+                    to this room shows up here automatically, no per-room flag
+                    or per-zone button hand-written in this file. */}
+                {(zoneActions[room.key] || []).map(eid => (
+                  <button key={eid} className="actionBadge warnBtn" onClick={() => triggerEntity(eid).catch(e => setLog(`Error: ${e.message}`))}>
+                    <span className="badgeIcon"><Icon path={mdiRobotVacuum} /></span>
+                    <span>{zoneActionLabel(friendly(states, eid))}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -899,19 +927,29 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
               </div>
             </div>}
 
-            {(avgHouseTemp !== null || avgHouseHumidity !== null) && <div className="panelSection panelSectionGrow">
+            {(avgHouseTemp !== null || avgHouseHumidity !== null) && <div className="panelSection">
               <span className="sectionLabel">House Climate</span>
               <div className="houseClimateRow">
-                {avgHouseTemp !== null && <div className="houseClimateStat">
+                {avgHouseTemp !== null && <div className="houseClimateStat" onClick={() => openMoreInfo(HOUSE_TEMP_ENTITY)}>
                   <Icon path={mdiThermometer} size={16} />
                   <span className="houseClimateValue">{avgHouseTemp.toFixed(1)}°</span>
                 </div>}
-                {avgHouseHumidity !== null && <div className="houseClimateStat">
+                {avgHouseHumidity !== null && <div className="houseClimateStat" onClick={() => openMoreInfo(HOUSE_HUMIDITY_ENTITY)}>
                   <Icon path={mdiWaterPercent} size={16} />
                   <span className="houseClimateValue">{avgHouseHumidity.toFixed(0)}%</span>
                 </div>}
               </div>
             </div>}
+
+            <div className="panelSection panelSectionGrow">
+              <span className="sectionLabel">Cleaning</span>
+              <div className="actions">
+                <button className="actionBadge primary" onClick={() => cleanWholeHouse().catch(e => setLog(`Error: ${e.message}`))}>
+                  <span className="badgeIcon"><Icon path={mdiRobotVacuum} /></span>
+                  <span>Clean whole house</span>
+                </button>
+              </div>
+            </div>
           </motion.div>}
         </AnimatePresence>
       </motion.aside>}

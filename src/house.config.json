@@ -12,7 +12,6 @@
       "d": "M834,378 L1078,378 L1078,710 L834,710 Z",
       "bx": 834, "by": 378, "bw": 244, "bh": 332, "dx": 858, "dy": 402, "lx": 956, "ly": 550,
       "fallbackEntities": ["binary_sensor.ups_office_online_status", "sensor.ups_office_battery", "sensor.ups_office_load", "sensor.ups_office_input_voltage", "switch.smart_plug_switch_1", "sensor.smart_plug_power", "sensor.server_consumo_total", "switch.pc_switch_1", "sensor.pc_power", "sensor.pc_consumo_total", "light.music_rhythm_light_strip_6de7", "light.music_rhythm_light_strip_d809"],
-      "fallbackOnly": true,
       "excludeEntityPatterns": ["baby", "babycam", "bed", "bedroom", "mesilla", "dormitorio", "diego", "lechange", "camera", "autofocus", "ir lamp", "ir_lamp"]
     },
     {
@@ -29,7 +28,6 @@
       "key": "living",
       "name": "Living room",
       "roomId": 17,
-      "baby": true,
       "fill": "#d9deeb",
       "areaNames": ["Living room", "Living Room", "Salon", "Salón", "Comedor"],
       "d": "M712,846 L834,846 L834,710 L1078,710 L1078,1186 L712,1186 Z",
@@ -78,7 +76,7 @@
       "d": "M834,91 L1078,91 L1078,378 L834,378 Z",
       "bx": 834, "by": 91, "bw": 244, "bh": 287, "dx": 858, "dy": 115, "lx": 956, "ly": 240,
       "climateEntities": ["sensor.formaldehyde_detector_temperature", "sensor.formaldehyde_detector_humidity", "sensor.formaldehyde_detector_carbon_dioxide"],
-      "fallbackEntities": ["sensor.formaldehyde_detector_temperature", "sensor.formaldehyde_detector_humidity", "sensor.formaldehyde_detector_carbon_dioxide", "sensor.formaldehyde_detector_vocs", "binary_sensor.wi_fi_human_presence_detector_motion", "light.smart_wifi_led_strip_1s24_3", "light.smart_wifi_led_strip_1s24_2", "binary_sensor.baby_room_noise", "sensor.baby_stt", "binary_sensor.lechange_motion_alarm"]
+      "fallbackEntities": ["sensor.formaldehyde_detector_temperature", "sensor.formaldehyde_detector_humidity", "sensor.formaldehyde_detector_carbon_dioxide", "sensor.formaldehyde_detector_vocs", "binary_sensor.wi_fi_human_presence_detector_motion", "light.smart_wifi_led_strip_1s24_3", "binary_sensor.baby_room_noise", "sensor.baby_stt"]
     }
   ]
 }

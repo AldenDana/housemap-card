@@ -4,7 +4,7 @@ import { drawOrder, roomOrder, rooms, VIEWBOX_HEIGHT, VIEWBOX_WIDTH } from './ro
 const VB_W = VIEWBOX_WIDTH, VB_H = VIEWBOX_HEIGHT;
 const ZOOM_PAD = 1.5;
 const ZOOM_MAX = 2.6;
-const BADGE_W = 190, BADGE_MARGIN = 24, BADGE_ROW_H = 30, BADGE_PAD = 10;
+const BADGE_W = 280, BADGE_MARGIN = 24, BADGE_ROW_H = 54, BADGE_PAD = 14;
 
 const climateOrder: ClimateKind[] = ['temperature', 'humidity', 'lux', 'co2'];
 const climateMeta: Record<ClimateKind, { icon: string; label: string }> = {
