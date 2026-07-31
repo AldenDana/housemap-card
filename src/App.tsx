@@ -852,10 +852,10 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
 
             <div className="panelSection">
               <span className="sectionLabel">Cleaning</span>
-              <div className="actions">
-                <button className="actionBadge primary" onClick={() => cleanRoom().catch(e => setLog(`Error: ${e.message}`))}>
-                  <span className="badgeIcon"><Icon path={mdiRobotVacuum} /></span>
-                  <span>Clean room</span>
+              <div className="cleaningList">
+                <button className="entity entityAction" onClick={() => cleanRoom().catch(e => setLog(`Error: ${e.message}`))}>
+                  <span className="entityIcon"><Icon path={mdiRobotVacuum} size={18} /></span>
+                  <b>Clean room</b>
                 </button>
                 {/* Zone-clean buttons come entirely from HA's own registry (see
                     loadRoomEntityMappings' zoneActions / ZONE_ACTION_LABEL in
@@ -863,9 +863,9 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
                     to this room shows up here automatically, no per-room flag
                     or per-zone button hand-written in this file. */}
                 {(zoneActions[room.key] || []).map(eid => (
-                  <button key={eid} className="actionBadge warnBtn" onClick={() => triggerEntity(eid).catch(e => setLog(`Error: ${e.message}`))}>
-                    <span className="badgeIcon"><Icon path={mdiRobotVacuum} /></span>
-                    <span>{zoneActionLabel(friendly(states, eid))}</span>
+                  <button key={eid} className="entity entityAction" onClick={() => triggerEntity(eid).catch(e => setLog(`Error: ${e.message}`))}>
+                    <span className="entityIcon"><Icon path={mdiRobotVacuum} size={18} /></span>
+                    <b>{zoneActionLabel(friendly(states, eid))}</b>
                   </button>
                 ))}
               </div>
@@ -943,10 +943,10 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
 
             <div className="panelSection panelSectionGrow">
               <span className="sectionLabel">Cleaning</span>
-              <div className="actions">
-                <button className="actionBadge primary" onClick={() => cleanWholeHouse().catch(e => setLog(`Error: ${e.message}`))}>
-                  <span className="badgeIcon"><Icon path={mdiRobotVacuum} /></span>
-                  <span>Clean whole house</span>
+              <div className="cleaningList">
+                <button className="entity entityAction" onClick={() => cleanWholeHouse().catch(e => setLog(`Error: ${e.message}`))}>
+                  <span className="entityIcon"><Icon path={mdiRobotVacuum} size={18} /></span>
+                  <b>Clean whole house</b>
                 </button>
               </div>
             </div>

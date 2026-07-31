@@ -164,15 +164,47 @@ export async function loadRoomEntityMappings(hass?: HassLike): Promise<RoomData>
   }
 
   // Some integrations (Tuya/local_tuya in particular) expose BOTH a raw
-  // switch.* entity and an abstracted light.* entity for the same physical
-  // device - the light entity already covers on/off (plus brightness/color
-  // where supported), so the raw switch duplicate is never a second real
-  // control, just noise with a misleading toggle-switch icon. Suppress any
-  // switch.* entity that shares a device_id with a light.* entity, globally
-  // (not per-room), before room assignment even happens.
-  const deviceHasLight = new Set<string>();
+  // switch.* entity and an abstracted light.* entity for the SAME relay on
+  // the same physical device (e.g. switch.lampara_cine + light.lampara_cine_2
+  // - confirmed live, identical device_id, genuinely the one relay exported
+  // twice). But sharing a device_id is NOT enough on its own to call it a
+  // duplicate: HA groups entities by physical HARDWARE unit, and a real
+  // multi-gang device (a 2-socket nightstand plug, a switch+fan combo) can
+  // have several genuinely different, independently-controllable entities
+  // under that same device_id - e.g. switch.ventilador_switch_1 (a fan) and
+  // switch.lights_living_room_socket_1 (a second, distinct socket) both
+  // share a device_id with a Master Bedroom light but control something
+  // completely different, and were wrongly disappearing under a same-device
+  // rule alone (caught by Javier: "why don't I see all the devices there").
+  // Distinguish the two cases by comparing entity_id text, not just
+  // device_id - the true duplicates share their meaningful name tokens with
+  // the light ("lampara_cine" / "lampara_cine_2"), the false positives don't
+  // ("ventilador" shares nothing with "luz_habitacion").
+  const GENERIC_ENTITY_TOKENS = new Set(['switch', 'socket', 'plug', 'outlet']);
+  function nameTokens(entityId: string): Set<string> {
+    const slug = entityId.replace(/^[^.]+\./, '');
+    return new Set(slug.split('_').filter(t => t && !/^\d+$/.test(t) && !GENERIC_ENTITY_TOKENS.has(t)));
+  }
+  function sharesIdentity(a: Set<string>, b: Set<string>): boolean {
+    if (!a.size || !b.size) return false;
+    const [small, big] = a.size <= b.size ? [a, b] : [b, a];
+    for (const t of small) if (!big.has(t)) return false;
+    return true;
+  }
+  const lightTokensByDevice = new Map<string, Set<string>[]>();
   for (const ent of entities || []) {
-    if (ent.entity_id.startsWith('light.') && ent.device_id) deviceHasLight.add(ent.device_id);
+    if (ent.entity_id.startsWith('light.') && ent.device_id) {
+      const list = lightTokensByDevice.get(ent.device_id) || [];
+      list.push(nameTokens(ent.entity_id));
+      lightTokensByDevice.set(ent.device_id, list);
+    }
+  }
+  function isDuplicateOfALight(ent: HaEntity): boolean {
+    if (!ent.entity_id.startsWith('switch.') || !ent.device_id) return false;
+    const lightTokenSets = lightTokensByDevice.get(ent.device_id);
+    if (!lightTokenSets) return false;
+    const switchTokens = nameTokens(ent.entity_id);
+    return lightTokenSets.some(lt => sharesIdentity(switchTokens, lt));
   }
 
   // HA's own live area/device registry is the authoritative source for which
@@ -185,7 +217,7 @@ export async function loadRoomEntityMappings(hass?: HassLike): Promise<RoomData>
   const zoneActions = Object.fromEntries(Object.keys(rooms).map(k => [k, []])) as unknown as Record<RoomKey, string[]>;
   for (const ent of entities || []) {
     if (!shouldShowEntity(ent)) continue;
-    if (ent.entity_id.startsWith('switch.') && ent.device_id && deviceHasLight.has(ent.device_id)) continue;
+    if (isDuplicateOfALight(ent)) continue;
     const key = (ent.area_id ? areaToRoom[ent.area_id] : undefined) || (ent.device_id ? deviceToRoom[ent.device_id] : undefined);
     if (!key || !shouldKeepForRoom(key, ent)) continue;
     dynamicRoomOf[ent.entity_id] = key;

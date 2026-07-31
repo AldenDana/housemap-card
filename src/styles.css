@@ -120,13 +120,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .btn{appearance:none;border:1px solid rgba(148,163,184,.3);border-radius:16px;background:rgba(30,41,59,.88);color:#e5e7eb;cursor:pointer;box-shadow:0 12px 28px rgba(0,0,0,.18);transition:transform .14s ease,border-color .14s ease,background .14s ease}
 .btn:hover{transform:translateY(-1px);border-color:rgba(125,211,252,.7)}
 .btn.back{flex:0 0 auto;min-width:32px;padding:6px 8px;border-radius:999px;display:flex;align-items:center;justify-content:center}
-.actions{display:flex;flex-wrap:wrap;gap:8px}
-.actionBadge{appearance:none;border:1px solid rgba(148,163,184,.3);border-radius:14px;background:rgba(30,41,59,.88);color:#e5e7eb;cursor:pointer;box-shadow:0 12px 28px rgba(0,0,0,.18);transition:transform .14s ease,border-color .14s ease,background .14s ease;display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 6px;flex:1 1 calc(50% - 4px);min-width:0}
-.actionBadge:hover{transform:translateY(-1px);border-color:rgba(125,211,252,.7)}
-.actionBadge .badgeIcon{width:30px;height:30px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.16);flex:0 0 auto}
-.actionBadge span:last-child{font-size:10.5px;font-weight:800;text-align:center;line-height:1.2;max-width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.actionBadge.primary{background:linear-gradient(135deg,#0284c7,#0ea5e9);border-color:rgba(186,230,253,.65);color:#fff}
-.actionBadge.warnBtn{background:linear-gradient(135deg,#e11d48,#fb7185);border-color:rgba(254,205,211,.7);color:#fff}
+.cleaningList{display:grid;gap:7px;margin-top:8px}
 
 .entityList{flex:1;min-height:0;display:grid;gap:7px;overflow:auto;align-content:start;padding-right:2px;margin-top:8px}
 .entity{width:100%;border:1px solid rgba(148,163,184,.23);border-radius:14px;background:rgba(15,23,42,.72);padding:8px 9px;color:#e2e8f0;display:flex;align-items:center;gap:9px;text-align:left}
