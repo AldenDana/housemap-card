@@ -196,13 +196,14 @@ function formatClimate(kind: ClimateKind, state: HaState): string {
 function buildRoomClimate(states: Record<string, HaState>, mappings: Record<RoomKey, string[]>): Record<RoomKey, RoomClimate> {
   const out = Object.fromEntries(roomOrder.map(k => [k, {}])) as Record<RoomKey, RoomClimate>;
   for (const key of roomOrder) {
-    // Keep climate badges deliberately curated. The room control panel can use broad
-    // HA area-derived mappings, but badges should only appear where we have a real
-    // live room sensor for that room. Otherwise broad/global weather or device
-    // telemetry can make every room look like it has climate data.
-    const candidates = [...new Set(rooms[key].climateEntities || [])];
-    for (const eid of candidates) {
-      if (!isLiveEntity(states, eid)) continue;
+    // Auto-detected from the same live HA Area data the room panel's
+    // Lights/Switches sections already use (mappings[key]) - any sensor.*
+    // entity HA places in this room whose device_class/unit identifies it as
+    // temperature/humidity/lux/co2 becomes a badge, one per kind (4 max,
+    // capped by ClimateKind itself). No per-room curated list to keep in
+    // sync by hand when HA's own Area assignment changes.
+    for (const eid of mappings[key] || []) {
+      if (!eid.startsWith('sensor.') || !isLiveEntity(states, eid)) continue;
       const state = states[eid];
       const kind = climateKind(eid, state);
       if (!kind || out[key][kind]) continue;
@@ -645,13 +646,13 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
     await callSvc(action.domain, action.service, { entity_id: eid });
     window.setTimeout(refreshState, 600);
   }
-
-  async function toggleLights() {
+  async function toggleAllLights() {
     if (!lightEntities.length) return;
     setLog(lightsOn ? 'Lights off' : 'Lights on');
     await callSvc('light', lightsOn ? 'turn_off' : 'turn_on', { entity_id: lightEntities });
     window.setTimeout(refreshState, 600);
   }
+
   async function setBrightness(val: number) {
     if (!brightnessCapable.length) return;
     await callSvc('light', 'turn_on', { entity_id: brightnessCapable, brightness_pct: val });
@@ -812,11 +813,34 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
             <div className="panelDivider" />
 
             {lightEntities.length > 0 && <div className="panelSection">
-              <div className="sectionRow">
-                <span className="sectionLabel">Lights</span>
-                <div className={`toggleSwitch${lightsOn ? ' on' : ''}`} onClick={() => toggleLights().catch(e => setLog(`Error: ${e.message}`))}>
-                  <div className="toggleKnob" />
-                </div>
+              <span className="sectionLabel">Lights</span>
+              {/* One row per light, not ONLY a single room-wide master toggle -
+                  a smart plug that happens to power a lamp (e.g. "Lampara
+                  Cine") is still its own light.* entity with its own on/off
+                  state, and Javier wants to see/control each one
+                  individually, same as switches already do. When a room has
+                  more than one light, an "All Lights" row is added back
+                  alongside them for the one-tap case. Brightness/color below
+                  still apply collectively to whichever lights in the room
+                  support them (per-light sliders would need real per-light
+                  UI state, not needed yet - no room currently mixes several
+                  color-capable lights that would want independent color). */}
+              <div className="cleaningList">
+                {lightEntities.length > 1 && (
+                  <button className={`entity entityAction${lightsOn ? ' active' : ''}`} onClick={() => toggleAllLights().catch(e => setLog(`Error: ${e.message}`))}>
+                    <span className="entityIcon"><Icon path={lightsOn ? mdiLightbulb : mdiLightbulbOutline} size={18} /></span>
+                    <b>All Lights</b>
+                  </button>
+                )}
+                {lightEntities.map(eid => {
+                  const on = states[eid]?.state === 'on';
+                  return (
+                    <button key={eid} className={`entity entityAction${on ? ' active' : ''}`} onClick={() => triggerEntity(eid).catch(e => setLog(`Error: ${e.message}`))}>
+                      <span className="entityIcon"><Icon path={on ? mdiLightbulb : mdiLightbulbOutline} size={18} /></span>
+                      <b>{friendly(states, eid)}</b>
+                    </button>
+                  );
+                })}
               </div>
               {brightnessCapable.length > 0 && <>
                 <div className="brightnessRow" style={{ opacity: lightsOn ? 1 : 0.35 }}>

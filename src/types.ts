@@ -19,7 +19,6 @@ export interface RoomConfig {
   roomId: number;
   areaNames: string[];
   fallbackEntities: string[];
-  climateEntities?: string[];
   // Forward-compat hooks: unset for every room today (this HA instance has zero
   // climate.*/cover.* entities), filled in once real thermostats/blinds exist.
   climateEntity?: string;
