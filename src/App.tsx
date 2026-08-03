@@ -25,7 +25,16 @@ import { authHeader, callService, fetchStates, haBase, loadRoomEntityMappings, m
 
 const WEATHER_ENTITY = 'weather.forecast_home';
 const ALARM_ENTITY = 'alarm_control_panel.alarmo';
-const PEOPLE_ENTITIES = ['person.alden', 'person.ana'];
+// alwaysShow: true renders a badge in every state (Home/Away/Work/Unknown) - for
+// household members you always want status for. alwaysShow: false only renders the
+// badge while presenceOf() resolves to 'home' - for guests (input_boolean driven by
+// an Alarmo "changed_by" automation, see Interactive House Map.md) who should be
+// invisible here the rest of the time, not shown as permanently "Away".
+const PEOPLE_ENTITIES: { eid: string; alwaysShow: boolean }[] = [
+  { eid: 'person.alden', alwaysShow: true },
+  { eid: 'person.ana', alwaysShow: true },
+  { eid: 'input_boolean.natiana_home', alwaysShow: false },
+];
 
 // Fire 7 landscape (1024x600) is the primary target; the panel stays a static
 // always-visible side card there. Below a narrow phone-portrait breakpoint the
@@ -383,10 +392,19 @@ const PRESENCE_META: Record<Presence, { label: string; className: string; icon: 
 function presenceOf(state?: HaState): Presence {
   const st = state?.state;
   if (!st || st === 'unknown' || st === 'unavailable') return 'unknown';
-  if (st === 'home') return 'home';
-  if (st === 'not_home') return 'away';
+  if (st === 'home' || st === 'on') return 'home'; // 'on' covers input_boolean-driven guest presence
+  if (st === 'not_home' || st === 'off') return 'away';
   if (st === 'work') return 'work';
   return 'away'; // any other configured zone name: still meaningfully "not home"
+}
+
+function PeopleRow({ states, hass }: { states: Record<string, HaState>; hass?: HassLike }) {
+  return <>
+    {PEOPLE_ENTITIES.map(p => {
+      if (!p.alwaysShow && presenceOf(states[p.eid]) !== 'home') return null;
+      return <PersonBadge key={p.eid} eid={p.eid} states={states} hass={hass} />;
+    })}
+  </>;
 }
 
 function PersonBadge({ eid, states, hass }: { eid: string; states: Record<string, HaState>; hass?: HassLike }) {
@@ -746,7 +764,7 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
           </div>
         </div>
         <div className="peopleRow mobilePeopleRow">
-          {PEOPLE_ENTITIES.map(eid => <PersonBadge key={eid} eid={eid} states={states} hass={hass} />)}
+          <PeopleRow states={states} hass={hass} />
         </div>
         {/* First pass copied the real mushroom-alarm-control-panel-card's own
             4-line vertical structure exactly (icon, since, mode, then a
@@ -926,7 +944,7 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
             <div className="panelSection">
               <span className="sectionLabel">People</span>
               <div className="peopleRow">
-                {PEOPLE_ENTITIES.map(eid => <PersonBadge key={eid} eid={eid} states={states} hass={hass} />)}
+                <PeopleRow states={states} hass={hass} />
               </div>
             </div>
 
