@@ -27,13 +27,13 @@ const WEATHER_ENTITY = 'weather.forecast_home';
 const ALARM_ENTITY = 'alarm_control_panel.alarmo';
 // alwaysShow: true renders a badge in every state (Home/Away/Work/Unknown) - for
 // household members you always want status for. alwaysShow: false only renders the
-// badge while presenceOf() resolves to 'home' - for guests (input_boolean driven by
-// an Alarmo "changed_by" automation, see Interactive House Map.md) who should be
-// invisible here the rest of the time, not shown as permanently "Away".
+// badge while presenceOf() resolves to 'home' - for guests without a device_tracker
+// yet (a real person entity with no tracker just reports 'unknown' forever, which
+// presenceOf() treats as not-home) who should be invisible here until one is linked.
 const PEOPLE_ENTITIES: { eid: string; alwaysShow: boolean }[] = [
   { eid: 'person.alden', alwaysShow: true },
   { eid: 'person.ana', alwaysShow: true },
-  { eid: 'input_boolean.natiana_home', alwaysShow: false },
+  { eid: 'person.natiana', alwaysShow: false },
 ];
 
 // Fire 7 landscape (1024x600) is the primary target; the panel stays a static
