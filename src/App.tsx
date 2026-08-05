@@ -35,6 +35,8 @@ const PEOPLE_ENTITIES: { eid: string; alwaysShow: boolean }[] = [
   { eid: 'person.alden', alwaysShow: true },
   { eid: 'person.ana', alwaysShow: true },
   { eid: 'person.natiana', alwaysShow: false },
+  { eid: 'person.fernando', alwaysShow: false },
+  { eid: 'person.esther', alwaysShow: false },
 ];
 
 // Fire 7 landscape (1024x600) is the primary target; the panel stays a static
