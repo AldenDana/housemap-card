@@ -127,6 +127,11 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .entity b{font-size:12px;line-height:1.25;font-weight:700;overflow-wrap:anywhere}
 .entityIcon{flex:0 0 auto;width:30px;height:30px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(148,163,184,.14);color:var(--muted);transition:background .16s ease,color .16s ease}
 .entity.active .entityIcon{background:rgba(245,158,11,.2);color:var(--warn)}
+/* Whole-house vacuum run gets the app's own accent color instead of the generic
+   amber "this entity is on" treatment - a deliberately different color from a
+   single-room/zone clean (still amber, same language as every other active
+   entity) so which mode is running is visible from the icon alone. */
+.entity.vacuumWhole.active .entityIcon{background:rgba(56,189,248,.2);color:var(--accent)}
 .entityAction{cursor:pointer}
 .entityAction:hover{background:rgba(14,165,233,.16);border-color:rgba(125,211,252,.55)}
 
@@ -236,7 +241,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .alarmKeypadGrid button.alarmKeypadSubmit:disabled{opacity:.4;cursor:default}
 
 .peopleRow{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
-.personBadge{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1 1 70px;min-width:0}
+.personBadge{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1 1 70px;min-width:0;cursor:pointer;border-radius:12px;padding:4px;margin:-4px;transition:background .14s ease}
+.personBadge:hover{background:rgba(255,255,255,.04)}
 .personAvatar{position:relative;width:44px;height:44px;border-radius:50%;overflow:visible;background:rgba(148,163,184,.18);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--muted);border:2px solid var(--track)}
 .personAvatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
 /* Position/size/no-border match the real mushroom-person-card's badge exactly

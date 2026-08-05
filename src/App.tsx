@@ -25,6 +25,7 @@ import { authHeader, callService, fetchStates, haBase, loadRoomEntityMappings, m
 
 const WEATHER_ENTITY = 'weather.forecast_home';
 const ALARM_ENTITY = 'alarm_control_panel.alarmo';
+const VACUUM_ENTITY = 'vacuum.xiaomi_d102gl_b637_robot_cleaner';
 // alwaysShow: true renders a badge in every state (Home/Away/Work/Unknown) - for
 // household members you always want status for. alwaysShow: false only renders the
 // badge while presenceOf() resolves to 'home' - for guests without a device_tracker
@@ -427,7 +428,12 @@ function PersonBadge({ eid, states, hass }: { eid: string; states: Record<string
 
   if (!state) return null;
   const name = friendly(states, eid);
-  return <div className={`personBadge ${meta.className}`}>
+  // Same behavior as tapping a real mushroom-person-card: open HA's own native
+  // more-info dialog for the entity, which renders the map view (when the person
+  // has a device_tracker with GPS/zone data) exactly like the stock frontend does -
+  // no custom map UI needed here, just reuse the same dialog every other entity tap
+  // in this app already opens via openMoreInfo.
+  return <div className={`personBadge ${meta.className}`} onClick={() => openMoreInfo(eid)}>
     <div className="personAvatar">
       {photoUrl ? <img src={photoUrl} alt={name} onError={() => setPhotoUrl(null)} /> : <span>{name.charAt(0).toUpperCase()}</span>}
       <span className="personStatusDot"><Icon path={meta.icon} size={10} /></span>
@@ -473,6 +479,17 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
   const [localClimate, setLocalClimate] = useState<Record<RoomKey, { temp: number; blinds: number }>>(
     () => Object.fromEntries(roomOrder.map(k => [k, { temp: 21, blinds: 0 }])) as Record<RoomKey, { temp: number; blinds: number }>
   );
+
+  // Which clean button started the vacuum's CURRENT run, purely local/session state -
+  // the vacuum entity itself only ever reports a generic 'cleaning' with no target-room
+  // info, so this is the only way to know which specific button should light up.
+  // Cleared the instant the vacuum leaves 'cleaning' so a stale target never survives
+  // into the NEXT run (including ones started outside this app, e.g. the Xiaomi app
+  // or a schedule - those just show no button lit, which is honest given we have
+  // nothing to go on, rather than guessing).
+  const [lastCleanTarget, setLastCleanTarget] = useState<{ type: 'whole' | 'room' | 'zone'; key?: string } | null>(null);
+  const vacuumCleaning = states[VACUUM_ENTITY]?.state === 'cleaning';
+  useEffect(() => { if (!vacuumCleaning) setLastCleanTarget(null); }, [vacuumCleaning]);
 
   const isPhoneDrawer = useIsPhoneDrawer();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -609,11 +626,21 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
   async function cleanRoom() {
     if (!room) return;
     const payload: Record<string, unknown> = { room_id: room.roomId, ...ROOM_CLEAN_DEFAULTS };
+    setLastCleanTarget({ type: 'room', key: room.key });
     setLog(`Cleaning ${room.name}…`);
     await callSvc('script', 'vacuum_clean_rooms', payload);
     setLog(`Cleaning ${room.name}`);
   }
-  async function cleanWholeHouse() { setLog('Cleaning whole house…'); await callSvc('script', 'vacuum_clean_all', {}); setLog('Cleaning whole house'); }
+  async function cleanWholeHouse() {
+    setLastCleanTarget({ type: 'whole' });
+    setLog('Cleaning whole house…');
+    await callSvc('script', 'vacuum_clean_all', {});
+    setLog('Cleaning whole house');
+  }
+  async function cleanZone(eid: string) {
+    setLastCleanTarget({ type: 'zone', key: eid });
+    await triggerEntity(eid);
+  }
   async function armMode(mode: typeof ALARM_MODES[number]) {
     setArmModalOpen(false);
     setLog(`Arming ${mode.label}…`);
@@ -895,7 +922,7 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
             <div className="panelSection">
               <span className="sectionLabel">Cleaning</span>
               <div className="cleaningList">
-                <button className="entity entityAction" onClick={() => cleanRoom().catch(e => setLog(`Error: ${e.message}`))}>
+                <button className={`entity entityAction${vacuumCleaning && lastCleanTarget?.type === 'room' && lastCleanTarget.key === room.key ? ' active' : ''}`} onClick={() => cleanRoom().catch(e => setLog(`Error: ${e.message}`))}>
                   <span className="entityIcon"><Icon path={mdiRobotVacuum} size={18} /></span>
                   <b>Clean room</b>
                 </button>
@@ -905,7 +932,7 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
                     to this room shows up here automatically, no per-room flag
                     or per-zone button hand-written in this file. */}
                 {(zoneActions[room.key] || []).map(eid => (
-                  <button key={eid} className="entity entityAction" onClick={() => triggerEntity(eid).catch(e => setLog(`Error: ${e.message}`))}>
+                  <button key={eid} className={`entity entityAction${vacuumCleaning && lastCleanTarget?.type === 'zone' && lastCleanTarget.key === eid ? ' active' : ''}`} onClick={() => cleanZone(eid).catch(e => setLog(`Error: ${e.message}`))}>
                     <span className="entityIcon"><Icon path={mdiRobotVacuum} size={18} /></span>
                     <b>{zoneActionLabel(friendly(states, eid))}</b>
                   </button>
@@ -986,7 +1013,7 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
             <div className="panelSection panelSectionGrow">
               <span className="sectionLabel">Cleaning</span>
               <div className="cleaningList">
-                <button className="entity entityAction" onClick={() => cleanWholeHouse().catch(e => setLog(`Error: ${e.message}`))}>
+                <button className={`entity entityAction vacuumWhole${vacuumCleaning && lastCleanTarget?.type === 'whole' ? ' active' : ''}`} onClick={() => cleanWholeHouse().catch(e => setLog(`Error: ${e.message}`))}>
                   <span className="entityIcon"><Icon path={mdiRobotVacuum} size={18} /></span>
                   <b>Clean whole house</b>
                 </button>
