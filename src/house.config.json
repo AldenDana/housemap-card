@@ -32,7 +32,7 @@
       "areaNames": ["Living room", "Living Room", "Salon", "Salón", "Comedor"],
       "d": "M712,846 L834,846 L834,710 L1078,710 L1078,1186 L712,1186 Z",
       "bx": 712, "by": 710, "bw": 366, "bh": 476, "dx": 748, "dy": 880, "lx": 900, "ly": 1000,
-      "fallbackEntities": ["light.luz_salon_switch_1", "light.lampara_cine_2", "light.library_led", "media_player.tv_samsung_7_series_50_2", "binary_sensor.living_room_presence_detector", "sensor.living_room_presence_detector_illuminance", "sensor.living_room_presence_detector_battery", "sensor.lampara_salon_consumo_total", "sensor.lampara_cine_consumo_total"]
+      "fallbackEntities": ["light.luz_salon_switch_1", "light.lampara_cine_2", "switch.living_room_library_led", "media_player.tv_samsung_7_series_50_2", "binary_sensor.living_room_presence_detector", "sensor.living_room_presence_detector_illuminance", "sensor.living_room_presence_detector_battery", "sensor.lampara_salon_consumo_total", "sensor.lampara_cine_consumo_total"]
     },
     {
       "key": "master",

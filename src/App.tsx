@@ -514,8 +514,18 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
 
   const room = selected ? rooms[selected] : null;
   const entities = useMemo(() => selected ? mergedEntities(selected, mappings) : [], [selected, mappings]);
-  const lightEntities = useMemo(() => entities.filter(eid => eid.startsWith('light.')), [entities]);
-  const otherEntities = useMemo(() => entities.filter(eid => !eid.startsWith('light.')), [entities]);
+  // switch.living_room_library_led is functionally a light (a Tuya TS0001
+  // relay wired to the library LED strip), but stuck in the switch domain -
+  // its Zigbee hardware is identical to an unrelated device (a wall tablet
+  // charging relay) that genuinely needs to be a switch, and zigpy-quirks
+  // matches by hardware signature only, with no supported way to reclassify
+  // one specific physical unit without affecting the other (tried and
+  // reverted 2026-08-06, see Interactive House Map.md). Treated as a light
+  // here so it keeps the normal Lights-section UI Javier expects, rather
+  // than showing generically in the switches list.
+  const LIBRARY_LED_SWITCH = 'switch.living_room_library_led';
+  const lightEntities = useMemo(() => entities.filter(eid => eid.startsWith('light.') || eid === LIBRARY_LED_SWITCH), [entities]);
+  const otherEntities = useMemo(() => entities.filter(eid => !eid.startsWith('light.') && eid !== LIBRARY_LED_SWITCH), [entities]);
   const visibleControls = useMemo(() => uniqueVisibleControls(otherEntities, states), [otherEntities, states]);
   const climate = useMemo(() => buildRoomClimate(states, mappings), [states, mappings]);
   const avgHouseTemp = isLiveEntity(states, HOUSE_TEMP_ENTITY) ? Number(states[HOUSE_TEMP_ENTITY].state) : null;
@@ -526,7 +536,7 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
   const lightsOnByRoom = useMemo(() => {
     const out = Object.fromEntries(roomOrder.map(k => [k, false])) as Record<RoomKey, boolean>;
     for (const key of roomOrder) {
-      const eids = mergedEntities(key, mappings).filter(eid => eid.startsWith('light.'));
+      const eids = mergedEntities(key, mappings).filter(eid => eid.startsWith('light.') || eid === LIBRARY_LED_SWITCH);
       out[key] = eids.some(eid => states[eid]?.state === 'on');
     }
     return out;
@@ -696,7 +706,16 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
   async function toggleAllLights() {
     if (!lightEntities.length) return;
     setLog(lightsOn ? 'Lights off' : 'Lights on');
-    await callSvc('light', lightsOn ? 'turn_off' : 'turn_on', { entity_id: lightEntities });
+    const service = lightsOn ? 'turn_off' : 'turn_on';
+    // Most of lightEntities are real light.* entities, but it can also
+    // contain LIBRARY_LED_SWITCH (a switch.* entity treated as a light for
+    // display - see its definition above) - the light domain service call
+    // would silently no-op on a switch entity, so split by domain instead
+    // of assuming every id here is light.*.
+    const lightIds = lightEntities.filter(eid => eid.startsWith('light.'));
+    const switchIds = lightEntities.filter(eid => eid.startsWith('switch.'));
+    if (lightIds.length) await callSvc('light', service, { entity_id: lightIds });
+    if (switchIds.length) await callSvc('switch', service, { entity_id: switchIds });
     window.setTimeout(refreshState, 600);
   }
 
