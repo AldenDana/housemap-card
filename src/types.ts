@@ -23,6 +23,11 @@ export interface RoomConfig {
   // climate.*/cover.* entities), filled in once real thermostats/blinds exist.
   climateEntity?: string;
   coverEntity?: string;
+  // SIP-HASS extension for this room's intercom endpoint (see SIP Core's own
+  // integration options, `users`/`backup_user` entries). Unset for rooms with
+  // no intercom device (e.g. a corridor with no tablet/speaker) - the call
+  // button in the room panel only renders when this is set.
+  sipExtension?: string;
   excludeEntityPatterns?: string[];
   fill: string;
   d: string; // SVG path data, 1184x1280 unit space

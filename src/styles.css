@@ -120,6 +120,11 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .btn{appearance:none;border:1px solid rgba(148,163,184,.3);border-radius:16px;background:rgba(30,41,59,.88);color:#e5e7eb;cursor:pointer;box-shadow:0 12px 28px rgba(0,0,0,.18);transition:transform .14s ease,border-color .14s ease,background .14s ease}
 .btn:hover{transform:translateY(-1px);border-color:rgba(125,211,252,.7)}
 .btn.back{flex:0 0 auto;min-width:32px;padding:6px 8px;border-radius:999px;display:flex;align-items:center;justify-content:center}
+.btn.call{flex:0 0 auto;min-width:32px;padding:6px 8px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#86efac}
+.btn.call.incoming{color:#7dd3fc;border-color:rgba(125,211,252,.7);animation:callPulse 1s ease-in-out infinite}
+.btn.call.ringing{color:#86efac;animation:callPulse 1s ease-in-out infinite}
+.btn.call.connected{color:#f87171;border-color:rgba(248,113,113,.7)}
+@keyframes callPulse{0%,100%{box-shadow:0 0 0 0 rgba(125,211,252,.55)}50%{box-shadow:0 0 0 7px rgba(125,211,252,0)}}
 .cleaningList{display:grid;gap:7px;margin-top:8px}
 
 .entityList{flex:1;min-height:0;display:grid;gap:7px;overflow:auto;align-content:start;padding-right:2px;margin-top:8px}

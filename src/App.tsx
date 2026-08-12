@@ -10,6 +10,7 @@ import {
   mdiShield, mdiShieldOff, mdiShieldHome, mdiShieldLock, mdiShieldMoon, mdiShieldAirplane, mdiShieldOutline, mdiBellRing,
   mdiEye, mdiEyeOff, mdiCheck, mdiClose,
   mdiHome, mdiBriefcase, mdiHomeExportOutline, mdiHelp, mdiThermometer, mdiWaterPercent,
+  mdiPhone, mdiPhoneHangup, mdiPhoneIncoming, mdiPhoneOutgoing,
 } from '@mdi/js';
 import { Floorplan } from './Floorplan';
 import { roomOrder, rooms } from './rooms';
@@ -282,6 +283,48 @@ function openWeatherDashboard() {
   } catch {
     window.top!.location.href = '/dashboard-weather/weather';
   }
+}
+
+// SIP-HASS intercom (custom:sip-call-card's own integration, TECH7Fox/
+// sipcore-hass-integration) exposes a single global singleton, `sipCore`, on
+// whatever window its own `sip_core.js` Lovelace resource module loaded into
+// - the real top-level HA frontend window either way (registered Lovelace
+// resources load once at the frontend's own bootstrap, before this app's
+// card/iframe even mounts), same cross-frame reasoning as openMoreInfo/
+// openWeatherDashboard above. Read via window.top so this keeps working
+// whether this app is mounted directly (card mode, window.top === window)
+// or iframed (standalone mode).
+interface SipCoreLike {
+  callState: 'idle' | 'incoming' | 'outgoing' | 'connecting' | 'connected';
+  remoteExtension: string | null;
+  startCall: (extension: string) => void;
+  answerCall: () => void;
+  endCall: () => void;
+}
+function getSipCore(): SipCoreLike | null {
+  try {
+    return (window.top as unknown as { sipCore?: SipCoreLike }).sipCore || null;
+  } catch {
+    return null;
+  }
+}
+
+// Mirrors sip-call-button's own connectedCallback/updateHandler pattern (see
+// that component's source) as a hook: the call state lives entirely in the
+// sipCore singleton, not React state, so this just forces a re-render
+// whenever sipCore fires its update event - same event both the dashboard's
+// own sip-call-card/sip-call-button already listen for.
+function useSipCallState(): { callState: SipCoreLike['callState']; remoteExtension: string | null } {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    let top: Window;
+    try { top = window.top!; } catch { return; }
+    const handler = () => setTick(t => t + 1);
+    top.addEventListener('sipcore-update', handler);
+    return () => top.removeEventListener('sipcore-update', handler);
+  }, []);
+  const sipCore = getSipCore();
+  return { callState: sipCore?.callState || 'idle', remoteExtension: sipCore?.remoteExtension || null };
 }
 
 // Modes are visually distinct at rest (not just a generic "armed" green) so which
@@ -616,6 +659,41 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
 
   const alarmCountdown = useAlarmCountdown(alarmState);
 
+  const { callState: sipCallState, remoteExtension: sipRemoteExtension } = useSipCallState();
+  // Tapping a room's phone icon: idle starts a call to that room's extension;
+  // if that same room is already ringing in (someone there is calling us) it
+  // answers; anything else (an active call, or a call to/from a different
+  // extension) hangs up - same three-way tap semantics as the dashboard's own
+  // sip-call-button, just scoped per room here instead of one fixed extension.
+  function callRoomExtension(extension: string, name: string) {
+    const sipCore = getSipCore();
+    if (!sipCore) { setLog('Intercom unavailable'); return; }
+    try {
+      if (sipCallState === 'idle') {
+        sipCore.startCall(extension);
+        setLog(`Calling ${name}…`);
+      } else if (sipCallState === 'incoming' && sipRemoteExtension === extension) {
+        sipCore.answerCall();
+      } else {
+        sipCore.endCall();
+      }
+    } catch (e) {
+      setLog(`Intercom error: ${(e as Error).message}`);
+    }
+  }
+  // Only the room whose extension matches the call currently in progress
+  // shows a "live" icon/state - every other room's button always just shows
+  // the plain idle phone icon, regardless of what's happening elsewhere.
+  const sipIsThisRoom = Boolean(room?.sipExtension) && sipRemoteExtension === room?.sipExtension;
+  const sipButtonIcon = !sipIsThisRoom ? mdiPhone
+    : sipCallState === 'incoming' ? mdiPhoneIncoming
+    : sipCallState === 'connected' ? mdiPhoneHangup
+    : (sipCallState === 'outgoing' || sipCallState === 'connecting') ? mdiPhoneOutgoing
+    : mdiPhone;
+  const sipButtonClass = !sipIsThisRoom ? '' : sipCallState === 'incoming' ? 'incoming'
+    : sipCallState === 'connected' ? 'connected'
+    : (sipCallState === 'outgoing' || sipCallState === 'connecting') ? 'ringing' : '';
+
   useEffect(() => { setAlarmKeypadOpen(false); setArmModalOpen(false); setAlarmCode(''); setAlarmError(false); setAlarmCodeVisible(false); }, [selected]);
 
   // Phone-portrait drawer: tapping a room auto-opens the drawer so its controls are
@@ -875,6 +953,15 @@ export default function App({ hass, portalRoot = document.body }: { hass?: HassL
             <div className="panelHeader">
               <button className="btn back" onClick={() => selectRoom(null)}><Icon path={mdiArrowLeft} size={16} /></button>
               <h2>{room.name}</h2>
+              {room.sipExtension && (
+                <button
+                  className={`btn call ${sipButtonClass}`}
+                  onClick={() => callRoomExtension(room.sipExtension!, room.name)}
+                  title={!sipIsThisRoom ? `Call ${room.name}` : sipCallState === 'incoming' ? 'Answer' : sipCallState === 'idle' ? `Call ${room.name}` : 'Hang up'}
+                >
+                  <Icon path={sipButtonIcon} size={16} />
+                </button>
+              )}
             </div>
             <div className="panelDivider" />
 
