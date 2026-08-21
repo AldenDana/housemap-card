@@ -137,3 +137,11 @@ If you edit `house.config.json` or any source file after the dashboard is alread
 - No import validation — if you hand-edit `house.config.json` into something malformed, you'll find out at `npm run build` (TypeScript will complain) rather than get a friendly error.
 - The Lovelace card's house layout is baked in at build time (from `src/house.config.json`), not configurable per-install from the dashboard YAML — a different house needs its own rebuilt `housemap-card.js` today, same as the standalone build. A `config_url` (fetch a house config at runtime instead of bundling one) would remove that requirement but doesn't exist yet.
 - Not in HACS's default/searchable store yet — installable today only by adding this repo as a HACS **custom repository** (see above), which works identically once added but isn't discoverable without the URL. Getting into the default store is a separate submission/review process against [hacs/default](https://github.com/hacs/default).
+---
+
+## Support
+
+This is a spare-time project, shared free under the MIT licence and maintained as time allows.
+If it saved you an afternoon, you're welcome to [sponsor on GitHub](https://github.com/sponsors/AldenDana)
+or [buy me a coffee](https://ko-fi.com/aldendana) — completely optional, and it never gates features,
+fixes or support. A good bug report is worth more than a donation.
