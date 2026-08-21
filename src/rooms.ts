@@ -1,4 +1,4 @@
-import type { HouseConfig, RoomConfig, RoomKey } from './types';
+import type { HouseConfig, PersonBadge, RoomConfig, RoomKey } from './types';
 import houseConfigRaw from './house.config.json';
 
 // This file is a thin loader, not where your house data lives - edit
@@ -20,3 +20,12 @@ export const rooms: Record<RoomKey, RoomConfig> = Object.fromEntries(
 export const drawOrder = houseConfig.drawOrder;
 
 export const roomOrder = houseConfig.roomOrder;
+
+// House-wide entities (weather, alarm, robot vacuum, the people whose presence
+// badges appear in the overview panel). These used to be hard-coded constants
+// in App.tsx, which quietly made the README's "everything lives in one file"
+// promise untrue - a second house had to edit source to change them.
+export const weatherEntity = houseConfig.weatherEntity ?? '';
+export const alarmEntity = houseConfig.alarmEntity ?? '';
+export const vacuumEntity = houseConfig.vacuumEntity ?? '';
+export const people: PersonBadge[] = houseConfig.people ?? [];

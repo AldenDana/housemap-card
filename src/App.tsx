@@ -13,7 +13,7 @@ import {
   mdiPhone, mdiPhoneHangup, mdiPhoneIncoming, mdiPhoneOutgoing,
 } from '@mdi/js';
 import { Floorplan } from './Floorplan';
-import { roomOrder, rooms } from './rooms';
+import { alarmEntity, people, roomOrder, rooms, vacuumEntity, weatherEntity } from './rooms';
 import type { ClimateKind, ClimatePoint, HaState, RoomClimate, RoomKey } from './types';
 import { authHeader, callService, fetchStates, haBase, loadRoomEntityMappings, mergedEntities, type HassLike, type RoomData } from './ha';
 // Deliberately NOT imported here - each entry point pulls styles.css itself,
@@ -24,21 +24,10 @@ import { authHeader, callService, fetchStates, haBase, loadRoomEntityMappings, m
 // separate CSS asset file even with cssCodeSplit:false - defeating the
 // point of a single self-contained file HACS can serve.
 
-const WEATHER_ENTITY = 'weather.forecast_home';
-const ALARM_ENTITY = 'alarm_control_panel.alarmo';
-const VACUUM_ENTITY = 'vacuum.xiaomi_d102gl_b637_robot_cleaner';
-// alwaysShow: true renders a badge in every state (Home/Away/Work/Unknown) - for
-// household members you always want status for. alwaysShow: false only renders the
-// badge while presenceOf() resolves to 'home' - for guests without a device_tracker
-// yet (a real person entity with no tracker just reports 'unknown' forever, which
-// presenceOf() treats as not-home) who should be invisible here until one is linked.
-const PEOPLE_ENTITIES: { eid: string; alwaysShow: boolean }[] = [
-  { eid: 'person.alden', alwaysShow: true },
-  { eid: 'person.ana', alwaysShow: true },
-  { eid: 'person.natiana', alwaysShow: false },
-  { eid: 'person.fernando', alwaysShow: false },
-  { eid: 'person.esther', alwaysShow: false },
-];
+const WEATHER_ENTITY = weatherEntity;
+const ALARM_ENTITY = alarmEntity;
+const VACUUM_ENTITY = vacuumEntity;
+const PEOPLE_ENTITIES = people;
 
 // Fire 7 landscape (1024x600) is the primary target; the panel stays a static
 // always-visible side card there. Below a narrow phone-portrait breakpoint the

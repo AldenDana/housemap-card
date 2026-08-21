@@ -4,9 +4,24 @@ A React floorplan dashboard for Home Assistant: tap a room to zoom in and contro
 
 Two ways to install it: as a real **Lovelace custom card** via HACS (recommended — see below), or as a **standalone iframe** (the original deploy method, still supported).
 
+![The floorplan overview: rooms, weather, presence, alarm and cleaning in one view](docs/screenshots/overview.png)
+
+Tap any room to zoom into it and get just that room's controls — lights with per-light
+brightness, blinds, climate and a room-scoped vacuum clean:
+
+![Room focus view showing the Living Room's lights, blinds and cleaning controls](docs/screenshots/room-focus.png)
+
+You don't have to write SVG or JSON by hand. `tools/room-designer.html` opens straight in a
+browser — draw your rooms over a photo of your floor plan, name them, point them at your Home
+Assistant areas, and export the config:
+
+![The room designer tool with a house laid out and a room selected for editing](docs/screenshots/room-designer.png)
+
 ## Using it for your own house
 
-Everything about *your specific house* — room shapes, names, and which HA entities belong to which room — lives in **one file**, `src/house.config.json`. Nothing else in the app needs to change.
+Everything about *your specific house* — room shapes, names, which HA entities belong to which room, and the house-wide weather/alarm/vacuum/people entities — lives in **one file**, `src/house.config.json`. Nothing else in the app needs to change.
+
+The config committed here is a **fictional six-room demo flat**, which is what the screenshots above show. Replace it with your own; nothing in it refers to a real home.
 
 ### The easy way: `tools/room-designer.html`
 
@@ -32,6 +47,18 @@ If you're comfortable hand-editing JSON, the schema is:
   "viewBox": { "width": 1184, "height": 1280 },   // overall canvas size, arbitrary units
   "drawOrder": ["corridor", "kitchen", "..."],     // paint order (later = on top, matters if shapes overlap)
   "roomOrder": ["kitchen", "living", "..."],       // display order elsewhere in the UI (People row, etc. are separate)
+
+  // House-wide entities. All optional. Omitting weatherEntity or alarmEntity
+  // hides that panel section outright. vacuumEntity is the exception: it only
+  // highlights an in-progress clean, and does NOT hide the Cleaning buttons,
+  // which are script-driven (see the Cleaning section below).
+  "weatherEntity": "weather.forecast_home",
+  "alarmEntity": "alarm_control_panel.home_alarm",
+  "vacuumEntity": "vacuum.robot_cleaner",
+  "people": [                                      // presence badges in the overview panel
+    { "eid": "person.alex", "alwaysShow": true },  // alwaysShow: true = badge in every state (household members)
+    { "eid": "person.guest", "alwaysShow": false } // false = only visible while actually home (guests)
+  ],
   "rooms": [
     {
       "key": "kitchen",                 // internal id, must be unique, used in drawOrder/roomOrder
@@ -63,11 +90,11 @@ The "Clean room" / "Clean baby zone" / "Clean whole house" buttons call HA scrip
 
 ### Alarm panel
 
-The alarm control expects a single `alarm_control_panel.*` entity supporting `disarmed` / `armed_away` / `armed_night` / `armed_vacation` states (matches the [Alarmo](https://github.com/nielsfaber/alarmo) integration exactly). Update `ALARM_ENTITY` in `App.tsx` to point at your own alarm entity. If your alarm integration exposes different modes, adjust `ALARM_MODES` accordingly.
+The alarm control expects a single `alarm_control_panel.*` entity supporting `disarmed` / `armed_away` / `armed_night` / `armed_vacation` states (matches the [Alarmo](https://github.com/nielsfaber/alarmo) integration exactly). Set `alarmEntity` in `house.config.json` to point at your own alarm entity (omit it entirely and the alarm control doesn't render). If your alarm integration exposes different modes, adjust `ALARM_MODES` accordingly.
 
 ### People / presence
 
-`PEOPLE_ENTITIES` in `App.tsx` lists which `person.*` entities to show. Presence coloring reads real HA states (`home` / a named zone like `work` / `not_home` / `unknown`) — if you have HA Zones beyond just home, they'll show with their own icon and a blue tint automatically (no config needed beyond having the zone itself configured in HA with an icon).
+The `people` array in `house.config.json` lists which `person.*` entities to show. Presence coloring reads real HA states (`home` / a named zone like `work` / `not_home` / `unknown`) — if you have HA Zones beyond just home, they'll show with their own icon and a blue tint automatically (no config needed beyond having the zone itself configured in HA with an icon).
 
 ## Responsive behavior
 

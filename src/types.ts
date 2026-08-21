@@ -40,11 +40,33 @@ export interface RoomConfig {
 // point this app at a different house. See house.config.json's own comments
 // and the standalone room-designer tool (tools/room-designer.html) for how to
 // produce one without hand-writing SVG path coordinates.
+export interface PersonBadge {
+  eid: string;
+  // alwaysShow: true renders a badge in every state (Home/Away/Work/Unknown) - for
+  // household members you always want status for. alwaysShow: false only renders the
+  // badge while presenceOf() resolves to 'home' - for guests without a device_tracker
+  // yet (a real person entity with no tracker just reports 'unknown' forever, which
+  // presenceOf() treats as not-home) who should be invisible here until one is linked.
+  alwaysShow: boolean;
+}
+
 export interface HouseConfig {
   viewBox: { width: number; height: number };
   drawOrder: RoomKey[];
   roomOrder: RoomKey[];
   rooms: RoomConfig[];
+  // House-wide entities, as opposed to the per-room ones above. All optional.
+  // Omitting weatherEntity or alarmEntity hides that panel section outright
+  // (both are rendered behind a `state &&` guard). people defaults to an empty
+  // list, so no presence badges render.
+  weatherEntity?: string;
+  alarmEntity?: string;
+  // NOTE: unlike the two above, this does NOT gate the Cleaning buttons - those
+  // call HA scripts, not the vacuum entity, so they render either way. This
+  // entity is read only to highlight which clean is currently running. See the
+  // Cleaning section of the README for removing the buttons themselves.
+  vacuumEntity?: string;
+  people?: PersonBadge[];
 }
 
 export interface HaState {

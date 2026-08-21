@@ -1,85 +1,186 @@
 {
-  "viewBox": { "width": 1184, "height": 1280 },
-  "drawOrder": ["corridor", "kitchen", "bathroom", "master", "diego", "cueva", "living"],
-  "roomOrder": ["cueva", "kitchen", "living", "master", "bathroom", "corridor", "diego"],
+  "viewBox": {
+    "width": 1184,
+    "height": 1280
+  },
+  "drawOrder": [
+    "hallway",
+    "kitchen",
+    "bathroom",
+    "bedroom",
+    "bedroom2",
+    "living"
+  ],
+  "roomOrder": [
+    "living",
+    "kitchen",
+    "bedroom",
+    "bedroom2",
+    "bathroom",
+    "hallway"
+  ],
+  "weatherEntity": "weather.forecast_home",
+  "alarmEntity": "alarm_control_panel.home_alarm",
+  "vacuumEntity": "vacuum.robot_cleaner",
+  "people": [
+    {
+      "eid": "person.alex",
+      "alwaysShow": true
+    },
+    {
+      "eid": "person.sam",
+      "alwaysShow": true
+    },
+    {
+      "eid": "person.guest",
+      "alwaysShow": false
+    }
+  ],
   "rooms": [
     {
-      "key": "cueva",
-      "name": "Cueva / Office",
-      "roomId": 13,
-      "sipExtension": "111",
-      "fill": "#dfe3ee",
-      "areaNames": ["Cueva", "Office", "Despacho"],
-      "d": "M834,378 L1078,378 L1078,710 L834,710 Z",
-      "bx": 834, "by": 378, "bw": 244, "bh": 332, "dx": 858, "dy": 402, "lx": 956, "ly": 550,
-      "fallbackEntities": ["binary_sensor.ups_office_online_status", "sensor.ups_office_battery", "sensor.ups_office_load", "sensor.ups_office_input_voltage", "switch.smart_plug_switch_1", "sensor.smart_plug_power", "sensor.server_consumo_total", "switch.pc_switch_1", "sensor.pc_power", "sensor.pc_consumo_total", "light.music_rhythm_light_strip_6de7", "light.music_rhythm_light_strip_d809"],
-      "excludeEntityPatterns": ["baby", "babycam", "bed", "bedroom", "mesilla", "dormitorio", "diego", "lechange", "camera", "autofocus", "ir lamp", "ir_lamp"]
+      "key": "living",
+      "name": "Living Room",
+      "roomId": 1,
+      "fill": "#d9deeb",
+      "areaNames": [
+        "Living Room"
+      ],
+      "d": "M60,80 L620,80 L620,520 L60,520 Z",
+      "bx": 60,
+      "by": 80,
+      "bw": 560,
+      "bh": 440,
+      "dx": 100,
+      "dy": 150,
+      "lx": 340,
+      "ly": 300,
+      "fallbackEntities": [
+        "light.living_room_ceiling",
+        "light.living_room_lamp",
+        "switch.living_room_tv",
+        "media_player.living_room_speaker",
+        "sensor.living_room_temperature",
+        "sensor.living_room_humidity"
+      ],
+      "coverEntity": "cover.living_room_blinds"
     },
     {
       "key": "kitchen",
       "name": "Kitchen",
-      "roomId": 8,
-      "sipExtension": "109",
+      "roomId": 2,
       "fill": "url(#tiles)",
-      "areaNames": ["Kitchen", "Cocina"],
-      "d": "M70,91 L294,91 L294,378 L70,378 Z",
-      "bx": 70, "by": 91, "bw": 224, "bh": 287, "dx": 100, "dy": 170, "lx": 182, "ly": 270,
-      "fallbackEntities": []
+      "areaNames": [
+        "Kitchen"
+      ],
+      "d": "M620,80 L1124,80 L1124,520 L620,520 Z",
+      "bx": 620,
+      "by": 80,
+      "bw": 504,
+      "bh": 440,
+      "dx": 660,
+      "dy": 150,
+      "lx": 872,
+      "ly": 300,
+      "fallbackEntities": [
+        "light.kitchen_ceiling",
+        "switch.kitchen_coffee_machine",
+        "sensor.kitchen_temperature",
+        "binary_sensor.kitchen_motion"
+      ]
     },
     {
-      "key": "living",
-      "name": "Living room",
-      "roomId": 17,
-      "sipExtension": "102",
-      "fill": "#d9deeb",
-      "areaNames": ["Living room", "Living Room", "Salon", "Salón", "Comedor"],
-      "d": "M712,846 L834,846 L834,710 L1078,710 L1078,1186 L712,1186 Z",
-      "bx": 712, "by": 710, "bw": 366, "bh": 476, "dx": 748, "dy": 880, "lx": 900, "ly": 1000,
-      "fallbackEntities": ["light.luz_salon_switch_1", "light.lampara_cine_2", "switch.living_room_library_led", "media_player.tv_samsung_7_series_50_2", "binary_sensor.living_room_presence_detector", "sensor.living_room_presence_detector_illuminance", "sensor.living_room_presence_detector_battery", "sensor.lampara_salon_consumo_total", "sensor.lampara_cine_consumo_total"]
+      "key": "hallway",
+      "name": "Hallway",
+      "roomId": 3,
+      "fill": "#e3e7f1",
+      "areaNames": [
+        "Hallway"
+      ],
+      "d": "M60,520 L1124,520 L1124,660 L60,660 Z",
+      "bx": 60,
+      "by": 520,
+      "bw": 1064,
+      "bh": 140,
+      "dx": 100,
+      "dy": 590,
+      "lx": 592,
+      "ly": 590,
+      "fallbackEntities": [
+        "light.hallway",
+        "binary_sensor.hallway_motion",
+        "lock.front_door"
+      ]
     },
     {
-      "key": "master",
-      "name": "Master Bedroom",
-      "roomId": 19,
-      "sipExtension": "110",
+      "key": "bedroom",
+      "name": "Main Bedroom",
+      "roomId": 4,
       "fill": "#dfe3ee",
-      "areaNames": ["Master Bedroom", "Master bedroom", "Master Room", "Habitación", "Dormitorio", "Bedroom"],
-      "d": "M485,145 L775,145 L775,583 L485,583 Z",
-      "bx": 485, "by": 145, "bw": 290, "bh": 438, "dx": 515, "dy": 170, "lx": 630, "ly": 320,
-      "fallbackEntities": ["sensor.master_room_presence_detector_temperature", "sensor.master_room_presence_detector_humidity", "sensor.master_bedroom_sensors_illuminance", "binary_sensor.master_bedroom_sensors", "sensor.master_bedroom_sensors_battery", "light.mesilla_ana_socket_1", "light.luz_habitacion_switch_1", "sensor.mesilla_ana_consumo_total", "sensor.mesilla_javi_consumo_total", "switch.air_freshener_master_bedroom"]
+      "areaNames": [
+        "Main Bedroom"
+      ],
+      "d": "M60,660 L480,660 L480,1200 L60,1200 Z",
+      "bx": 60,
+      "by": 660,
+      "bw": 420,
+      "bh": 540,
+      "dx": 100,
+      "dy": 730,
+      "lx": 270,
+      "ly": 930,
+      "fallbackEntities": [
+        "light.bedroom_ceiling",
+        "sensor.bedroom_temperature",
+        "sensor.bedroom_humidity"
+      ],
+      "climateEntity": "climate.bedroom_thermostat",
+      "coverEntity": "cover.bedroom_blinds"
+    },
+    {
+      "key": "bedroom2",
+      "name": "Second Bedroom",
+      "roomId": 5,
+      "fill": "#d9deeb",
+      "areaNames": [
+        "Second Bedroom"
+      ],
+      "d": "M480,660 L820,660 L820,1200 L480,1200 Z",
+      "bx": 480,
+      "by": 660,
+      "bw": 340,
+      "bh": 540,
+      "dx": 520,
+      "dy": 730,
+      "lx": 650,
+      "ly": 930,
+      "fallbackEntities": [
+        "light.bedroom_2_ceiling",
+        "sensor.bedroom_2_temperature",
+        "sensor.bedroom_2_humidity"
+      ]
     },
     {
       "key": "bathroom",
       "name": "Bathroom",
-      "roomId": 10,
-      "sipExtension": "107",
-      "fill": "url(#tiles)",
-      "areaNames": ["Bathroom", "Baño", "Bano"],
-      "d": "M294,145 L485,145 L485,378 L294,378 Z",
-      "bx": 294, "by": 145, "bw": 191, "bh": 233, "dx": 320, "dy": 170, "lx": 390, "ly": 270,
-      "fallbackEntities": ["switch.radiador", "sensor.radiador_bano_consumo_total", "sensor.tz3210_3a4swuvt_ts011f_power", "sensor.tz3210_3a4swuvt_ts011f_current", "sensor.tz3210_3a4swuvt_ts011f_voltage"]
-    },
-    {
-      "key": "corridor",
-      "name": "Corridor",
-      "roomId": 22,
-      "sipExtension": "108",
-      "fill": "#e3e7f1",
-      "areaNames": ["Corridor", "Pasillo", "Hall", "Entry way", "Entryway"],
-      "d": "M70,91 L834,91 L834,846 L775,846 L775,145 L70,145 Z",
-      "bx": 70, "by": 91, "bw": 764, "bh": 755, "dx": 750, "dy": 115, "lx": 453, "ly": 120,
-      "fallbackEntities": ["binary_sensor.corridor_human_presence_sensor", "sensor.corridor_human_presence_sensor_illuminance", "sensor.corridor_human_presence_sensor_battery", "binary_sensor.main_door_sensor", "sensor.main_door_sensor_battery", "light.smart_wifi_led_strip_1s24_4"]
-    },
-    {
-      "key": "diego",
-      "name": "Diego's room",
       "roomId": 6,
-      "sipExtension": "106",
-      "fill": "#d9deeb",
-      "areaNames": ["Diego's room", "Diego room", "Diego", "Baby room", "Habitación Diego", "Cuarto Diego"],
-      "d": "M834,91 L1078,91 L1078,378 L834,378 Z",
-      "bx": 834, "by": 91, "bw": 244, "bh": 287, "dx": 858, "dy": 115, "lx": 956, "ly": 240,
-      "fallbackEntities": ["sensor.formaldehyde_detector_temperature", "sensor.formaldehyde_detector_humidity", "sensor.formaldehyde_detector_carbon_dioxide", "sensor.formaldehyde_detector_vocs", "binary_sensor.wi_fi_human_presence_detector_motion", "light.smart_wifi_led_strip_1s24_3", "binary_sensor.baby_room_noise", "sensor.baby_stt"]
+      "fill": "url(#tiles)",
+      "areaNames": [
+        "Bathroom"
+      ],
+      "d": "M820,660 L1124,660 L1124,1200 L820,1200 Z",
+      "bx": 820,
+      "by": 660,
+      "bw": 304,
+      "bh": 540,
+      "dx": 860,
+      "dy": 730,
+      "lx": 972,
+      "ly": 930,
+      "fallbackEntities": [
+        "light.bathroom",
+        "switch.bathroom_towel_rail",
+        "sensor.bathroom_humidity"
+      ]
     }
   ]
 }
